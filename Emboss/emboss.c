@@ -1,0 +1,408 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <GLFW/glfw3.h>
+#include "nanosvg.h"
+#include "tesselator.h"
+
+struct ConeParams {
+	float w;
+	float HH;
+	float foot;
+	float mouth;
+	float height;
+	//-v w=$maxx -v HH=$maxy -v foot=$foot -v mouth=$mouth -v height=$height 
+} cone ;
+
+
+void* stdAlloc(void* userData, unsigned int size)
+{
+	int* allocated = ( int*)userData;
+	TESS_NOTUSED(userData);
+	*allocated += (int)size;
+	return malloc(size);
+}
+
+void stdFree(void* userData, void* ptr)
+{
+	TESS_NOTUSED(userData);
+	free(ptr);
+}
+
+struct MemPool
+{
+	unsigned char* buf;
+	unsigned int cap;
+	unsigned int size;
+};
+
+void* poolAlloc( void* userData, unsigned int size )
+{
+	//printf("call poolAlloc with %d %d\n",size,(size+0x7) & ~0x7 );
+
+	struct MemPool* pool = (struct MemPool*)userData;
+	size = (size+0x7) & ~0x7;
+	if (pool->size + size < pool->cap)
+	{
+		unsigned char* ptr = pool->buf + pool->size;
+		pool->size += size;
+		//printf("grew pool to %d\n",pool->size);
+		return ptr;
+	}
+	//printf("out of mem: %d < %d!\n", pool->size + size, pool->cap);
+	return 0;
+}
+
+void poolFree( void* userData, void* ptr )
+{
+	// empty
+	TESS_NOTUSED(userData);
+	TESS_NOTUSED(ptr);
+}
+
+
+// Undefine this to see non-interactive heap allocator version.
+#define USE_POOL 1
+
+
+int run = 1;
+int cdt = 0;
+
+//a×b=(a2b3−a3b2)i−(a1b3−a3b1)j+(a1b2−a2b1)k.
+
+void transform(float* x) {
+
+}
+
+
+void triangle_normal(float* v1, float* v2, float* v3, float *n) {
+
+	float a[3];
+	float b[3];
+
+	a[0] = v2[0] - v1[0];
+	a[1] = v2[1] - v1[1];
+	a[2] = v2[2] - v1[2];
+
+	b[0] = v3[0] - v1[0];
+	b[1] = v3[1] - v1[1];
+	b[2] = v3[2] - v1[2];
+
+	n[0] = a[1]*b[2] - a[2]*b[1];
+	n[1] = a[0]*b[2] - a[2]*b[0];
+	n[2] = a[0]*b[1] - a[1]*b[0];
+	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
+	n[0] *= l;
+	n[1] *= l;
+	n[2] *= l;
+}
+
+void print_triangle( float* v1, float* v2, float* v3 ) {
+
+	transform(v1);
+	transform(v2);
+	transform(v3);
+
+	float n[3];
+	triangle_normal(v1,v2,v3,&n[0]);
+
+	printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	printf("    outer loop\n");
+	printf("      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
+	printf("      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+	printf("      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	printf("    endloop\n");
+	printf("  endfacet\n");
+
+
+}
+
+void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness) {
+
+	float v1[3] = { last_x, last_y, thickness } ;
+	float v2[3] = { this_x, this_y, thickness } ;
+	float v3[3] = { last_x, last_y, -thickness } ;
+	float v4[3] = { this_x, this_y, -thickness } ;
+
+//	v1 = {}; 
+
+	print_triangle(v1,v2,v3); 
+	print_triangle(v3,v2,v4); 
+
+/*
+	//print_quad( last_x, last_y, this_x, this_y );
+	printf("  facet normal 0 0 0\n");
+	printf("    outer loop\n");
+	printf("      vertex %f %f %f\n",last_x,last_y,thickness);
+	printf("      vertex %f %f %f\n",this_x,this_y,thickness);
+	printf("      vertex %f %f %f\n",last_x,last_y,-thickness);
+	printf("    endloop\n");
+	printf("  endfacet\n");
+
+	printf("  facet normal 0 0 0\n");
+	printf("    outer loop\n");
+	printf("      vertex %f %f %f\n",last_x,last_y,-thickness);
+	printf("      vertex %f %f %f\n",this_x,this_y,thickness);
+	printf("      vertex %f %f %f\n",this_x,this_y,-thickness);
+	printf("    endloop\n");
+	printf("  endfacet\n");
+	*/
+
+}
+
+int main(int argc, char *argv[])
+{
+	struct SVGPath* bg;
+	struct SVGPath* it;
+	float bounds[4];
+
+	//coneParams cone;
+
+	int width,height,i,j;
+	float fb[8]  ;
+
+	float cx,cy;
+	//float t = 0.0f, pt = 0.0f;
+	TESSalloc ma;
+	TESStesselator* tess = 0;
+	const int nvp = 3;
+	unsigned char* vflags = 0;
+
+	struct MemPool pool;
+	unsigned char* mem;   // [1024*1024*20];
+	int nvflags = 0;
+
+	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
+	bg = svgParseFromFile(argv[1]);
+	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
+	float thickness = atof(argv[2]);
+
+	if (argc>3) {
+		cone.foot = atof(argv[3]);
+		cone.mouth = atof(argv[4]);
+		cone.height = atof(argv[5]);
+	}
+
+	//printf("#thickness %f\n",thickness);
+	printf("solid x\n");
+	bounds[0] = bounds[2] = bg->pts[0];
+	bounds[1] = bounds[3] = bg->pts[1];
+	int np = 0;
+	for (it = bg; it != NULL; it = it->next)
+		{
+			//printf("svg element:\n");
+
+			for (i = 0; i < it->npts; ++i)
+			{
+				const float x = it->pts[i*2];
+				const float y = it->pts[i*2+1];
+				//printf("%f %f\n",x,y);
+				np+=1;
+				if (x < bounds[0]) bounds[0] = x;
+				if (y < bounds[1]) bounds[1] = y;
+				if (x > bounds[2]) bounds[2] = x;
+				if (y > bounds[3]) bounds[3] = y;
+			}
+			
+		}
+	cx = (bounds[0]+bounds[2])/2;
+	cy = (bounds[1]+bounds[3])/2;
+	width = bounds[2]-bounds[0];
+	height = bounds[3]-bounds[1];
+
+	cone.w = width;
+	cone.HH = height;
+
+	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
+	//printf("n input vertices: %d\n",np); fflush(stdout);
+
+	mem = malloc( np*2048 );
+	//printf("mem=%x\n",mem);
+	memset(mem,0, np*2048 );
+	//printf("allocate %d\n",np*1024); fflush(stdout);
+
+	pool.size = 0;
+	pool.cap = np*2048; //sizeof(mem);
+	pool.buf = mem;
+	memset(&ma, 0, sizeof(ma));
+	//memset(&ma,0, sizeof(ma))
+	ma.memalloc = poolAlloc;
+	ma.memfree = poolFree;
+	ma.userData = (void*)&pool;
+	ma.extraVertices = 2048; // realloc not provided, allow 256 extra vertices.
+
+
+		pool.size = 0; // reset pool
+		tess = tessNewTess(&ma);
+		if (tess)
+		{
+			tessSetOption(tess, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 0);
+
+			for (it = bg; it != NULL; it = it->next)
+				tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
+			
+#if 1
+		// First combine contours and then triangulate, this removes unnecessary inner vertices.
+			if (tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
+			//if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
+			{
+				const float* verts = tessGetVertices(tess);
+				const int* vinds = tessGetVertexIndices(tess);
+				const int nverts = tessGetVertexCount(tess);
+				const int* elems = tessGetElements(tess);
+				const int nelems = tessGetElementCount(tess);
+
+				if (nverts > nvflags)
+				{
+					if (vflags)
+						free(vflags);
+					nvflags = nverts;
+				//	printf("alloc %d vflags",nvflags);
+
+					vflags = (unsigned char*)malloc(sizeof(unsigned char)*nvflags);
+				}
+
+				if (vflags)
+				{
+					// Vertex indices describe the order the indices were added and can be used
+					// to map the tesselator output to input. Vertices marked as TESS_UNDEF
+					// are the ones that were created at the intersection of segments.
+					// That is, if vflags is set it means that the vertex comes from intersegment.
+					for (i = 0; i < nverts; ++i)
+						vflags[i] = vinds[i] == TESS_UNDEF ? 1 : 0;
+				}
+
+				for (i = 0; i < nelems; ++i)
+				{
+					int b = elems[i*2];
+					int n = elems[i*2+1];
+						//printf("tc:\n");
+						//printf("tc:\n");
+				//	printf("add contour %d/%d %d %d\n",i,nelems-1,b,n);
+
+					//for (j = 0; j < n; ++j)
+					//{
+					//	printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+					//}
+
+					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
+				}
+
+				//side walls 
+				for (i = 0; i < nelems; ++i)
+				{
+					int b = elems[i*2];
+					int n = elems[i*2+1];
+
+						
+
+					//	printf("tc:\n");
+					//	printf("tc:\n");
+
+					float last_x = verts[b*2];
+					float last_y = verts[b*2+1];
+
+					float this_x; float this_y;
+					for (j = 1; j < n; ++j)
+					{
+						 this_x = verts[b*2+j*2];
+						 this_y = verts[b*2+j*2+1];
+
+						print_quad( last_x, last_y, this_x, this_y, thickness );
+						//printf("  facet normal 0 0 1\n");
+    					//printf("    outer loop\n");
+						//	printf("      vertex %f %f %f\n",verts[p[j]*2],verts[p[j]*2+1],1);
+						//printf("    endloop\n");
+						//printf("  endfacet\n");
+
+						last_x = this_x;
+						last_y = this_y;
+						//printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+					}
+
+					this_x = verts[b*2];
+					this_y = verts[b*2+1];
+					print_quad( last_x, last_y, this_x, this_y, thickness );
+
+					//tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
+				}
+
+
+			//for (it = bg; it != NULL; it = it->next)
+			//	tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
+			
+				float dx = width / 200.0;
+				for (float x=bounds[0]-1.0;x<bounds[2];x+=dx) {
+					fb[0] = x;
+					fb[1] = bounds[1]-1.0;
+					fb[2] = x;
+					fb[3] = bounds[3]+1.0;
+					fb[4] = x+dx;
+					fb[5] = bounds[3]+1.0;
+					fb[6] = x+dx;
+					fb[7] = bounds[1]-1.0;
+					tessAddContour(tess, 2, fb, sizeof(float)*2, 4);
+
+				}
+
+				//printf("done adding contours\n"); //TESS_WINDING_POSITIVE,
+				if (!tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0)) {
+				//if (!tessTesselate(tess,TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0))
+					tess = 0;
+					printf("tesselate returned zero 2nd time\n");
+				}
+			}
+
+#else
+			if (tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_POLYGONS, nvp, 2, 0)) {
+				printf("tesselated");
+			}
+#endif
+			else {
+				printf("tesselate returned zero 1st time\n");
+				tess = 0;
+			}
+
+			//tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0);
+			//tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_POLYGONS, nvp, 2, 0);
+
+			if (tess)
+				{
+					const float* verts = tessGetVertices(tess);
+					//const int* vinds = tessGetVertexIndices(tess);
+					const int* elems = tessGetElements(tess);
+					//const int nverts = tessGetVertexCount(tess);
+					const int nelems = tessGetElementCount(tess);
+
+					// Draw polygons.
+					//glColor4ub(255,255,255,128);
+					// top
+					for (i = 0; i < nelems; ++i)
+					{
+
+						const int* p = &elems[i*nvp];
+
+						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],-thickness };
+						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],-thickness };
+						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],-thickness };
+
+						print_triangle(v1,v2,v3);
+
+						v1[2]*=-1.0;
+						v2[2]*=-1.0;
+						v3[2]*=-1.0;
+
+						print_triangle(v1,v3,v2);
+
+
+					}
+
+				}
+
+		}
+			printf("endsolid x\n");
+
+	return 0;
+}
