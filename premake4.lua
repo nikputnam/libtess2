@@ -50,7 +50,7 @@ solution "libtess2"
 		kind "ConsoleApp"
 		language "C"
 		links { "tess2" }
-		files { "Emboss/emboss.c", "Contrib/*.c" }
+		files { "Emboss/emboss.c" }
 		includedirs { "Include", "Contrib" }
 		targetdir("Build")
 

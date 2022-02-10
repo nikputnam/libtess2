@@ -284,7 +284,9 @@ void print_quad(float last_x, float last_y, float this_x, float this_y, float th
 
 int main(int argc, char *argv[])
 {
-	struct SVGPath* bg;
+	//struct SVGPath* bg;
+	NSVGimage *bg = NULL;
+
 	struct SVGPath* it;
 	float bounds[4];
 
@@ -305,7 +307,9 @@ int main(int argc, char *argv[])
 	int nvflags = 0;
 
 	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
-	bg = svgParseFromFile(argv[1]);
+	//bg = svgParseFromFile(argv[1]);
+	bg = nsvgParseFromFile(argv[1], "px", 96.0f);
+
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 	float thickness = atof(argv[2]);
 	cone.thickness = thickness;
@@ -321,9 +325,36 @@ int main(int argc, char *argv[])
 
 	//printf("#thickness %f\n",thickness);
 	printf("solid x\n");
-	bounds[0] = bounds[2] = bg->pts[0];
-	bounds[1] = bounds[3] = bg->pts[1];
+	//bounds[0] = bounds[2] = bg->pts[0];
+	//bounds[1] = bounds[3] = bg->pts[1];
 	int np = 0;
+	int done_init=0;
+
+	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
+		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+			//printf("x:\nx:\n");
+			for (int i = 0; i < path->npts; ++i) {
+				float* p = &path->pts[i*2];
+				const float x = p[0];
+				const float y = p[1];
+
+				if (!done_init) {
+					done_init = 1;
+						bounds[0] = bounds[2] = x;
+						bounds[1] = bounds[3] = y;
+				} 
+
+				np+=1;
+				if (x < bounds[0]) bounds[0] = x;
+				if (y < bounds[1]) bounds[1] = y;
+				if (x > bounds[2]) bounds[2] = x;
+				if (y > bounds[3]) bounds[3] = y;
+				//printf( "x: %f %f\n", p[0],p[1] );
+				//drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+			}
+		}
+	}
+/*
 	for (it = bg; it != NULL; it = it->next)
 		{
 			//printf("svg element:\n");
@@ -342,16 +373,16 @@ int main(int argc, char *argv[])
 				if (y > bounds[3]) bounds[3] = y;
 			}
 			
-		}
+		}*/
 	cx = (bounds[0]+bounds[2])/2;
 	cy = (bounds[1]+bounds[3])/2;
 	width = bounds[2]-bounds[0]; 
 	height = bounds[3]-bounds[1];
 
-	//cone.w = bounds[2]-bounds[0];
+	cone.w = bounds[2]-bounds[0];
 	cone.HH = bounds[3]-bounds[1];
-	printf("width:%f\n",cone.w);
-	printf("bounds: %f,%f %f,%f\n",bounds[0],bounds[1],bounds[2],bounds[3]); fflush(stdout);
+	//printf("width:%f\n",cone.w);
+	//printf("bounds: %f,%f %f,%f\n",bounds[0],bounds[1],bounds[2],bounds[3]); fflush(stdout);
 	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
 	//printf("n input vertices: %d\n",np); fflush(stdout);
 
@@ -377,8 +408,19 @@ int main(int argc, char *argv[])
 		{
 			tessSetOption(tess, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 0);
 
-			for (it = bg; it != NULL; it = it->next)
-				tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
+//	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
+//		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+//			printf("x:\nx:\n");
+//			for (int i = 0; i < path->npts; ++i) {
+			for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
+				for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+					tessAddContour(tess, 2, path->pts, sizeof(float)*2, path->npts);
+				}
+			}
+//				for (int i = 0; i < path->npts-1; i += 3) {
+
+			//for (it = bg; it != NULL; it = it->next)
+//				tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
 			
 		
 #if 1
@@ -416,14 +458,17 @@ int main(int argc, char *argv[])
 				{
 					int b = elems[i*2];
 					int n = elems[i*2+1];
-						printf("tc:\n");
-						printf("tc:\n");
+						//printf("tc:\n");
+						//printf("tc:\n");
 				//	printf("add contour %d/%d %d %d\n",i,nelems-1,b,n);
 
+/*
 					for (j = 0; j < n; ++j)
 					{
 						printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
 					}
+					*/
+		
 
 					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
