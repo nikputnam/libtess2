@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 	unsigned char* vflags = 0;
 #ifdef USE_POOL
 	struct MemPool pool;
-	unsigned char mem[1024*1024];
+	unsigned char* mem; // [1024*1024*128];
 	int nvflags = 0;
 #else
 	int allocated = 0;
@@ -95,6 +95,8 @@ int main(int argc, char *argv[])
 	TESS_NOTUSED(argc);
 	TESS_NOTUSED(argv);
 
+	printf("## max dimensions: %d\nsizeof(float)=%d\n",MAX_DIMENSIONS,sizeof(float));
+
 	if (!glfwInit()) {
 		printf("Failed to init GLFW.");
 		return -1;
@@ -102,7 +104,10 @@ int main(int argc, char *argv[])
 
 	printf("loading...\n");
 	// Load assets
-	bg = svgParseFromFile("../Bin/bg.svg");
+	//bg = svgParseFromFile("../Bin/bg.svg");
+	printf("parse\n");
+	bg = svgParseFromFile("output_677169067_3951.svg");
+	
 	if (!bg) return -1;
 	fg = svgParseFromFile("../Bin/fg.svg");
 	if (!fg) return -1;
@@ -160,9 +165,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef USE_POOL
-
+	mem = malloc( 1024*1024*512 );
 	pool.size = 0;
-	pool.cap = sizeof(mem);
+	pool.cap = 1024*1024*512  ; // sizeof(mem);
 	pool.buf = mem;
 	memset(&ma, 0, sizeof(ma));
 	ma.memalloc = poolAlloc;
@@ -300,9 +305,11 @@ int main(int argc, char *argv[])
 					it->pts[i*2+1] -= offy;
 				}
 			}
-
+#define turnoff 1
+#ifdef turnoff
 			// First combine contours and then triangulate, this removes unnecessary inner vertices.
 			if (tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
+			//if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
 			{
 				const float* verts = tessGetVertices(tess);
 				const int* vinds = tessGetVertexIndices(tess);
@@ -335,10 +342,16 @@ int main(int argc, char *argv[])
 					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
 				if (!tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_POLYGONS, nvp, 2, 0))
+				//if (!tessTesselate(tess,TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0))
 					tess = 0;
 			}
 			else
 				tess = 0;
+#else
+
+      tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0);
+      //tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_POLYGONS, nvp, 2, 0);
+#endif		
 		}
 #endif
 

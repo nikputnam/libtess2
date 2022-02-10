@@ -13,6 +13,9 @@ struct ConeParams {
 	float foot;
 	float mouth;
 	float height;
+	float max_z;
+	float min_z;
+	float thickness;
 	//-v w=$maxx -v HH=$maxy -v foot=$foot -v mouth=$mouth -v height=$height 
 } cone ;
 
@@ -72,10 +75,44 @@ int cdt = 0;
 
 //a×b=(a2b3−a3b2)i−(a1b3−a3b1)j+(a1b2−a2b1)k.
 
-void transform(float* x) {
+void transform(float* xprime, float *x) {
+
+    float d_foot = cone.foot;
+    float d_rim = cone.mouth;
+    float h = cone.height ;
+	float w = cone.w;
+    float f = d_foot * 3.1415 / w ; 
+    float s = (d_foot*h)/(d_rim-d_foot);
+    float r1 = sqrt( s*s + 0.25*d_foot*d_foot );
+    float sin_phi = 0.5*d_foot / r1;
+    float cos_phi = s / r1;
+    //float th = 0.0*f;
+    float thicknessf = 1.0;
+    float theta0 = d_foot * 3.1415 / r1;
+    float a=r1;
+    float c=w/theta0;
+
+	//float max_z = 0;
+    //float min_z = 0;
+
+	float xx = x[0];
+	float yy = x[1];
+	float zz = x[2];
+
+	float z = exp( yy/c)*a-a;
+    if (cone.max_z < z - thicknessf*f*zz*sin_phi) {cone.max_z = z - thicknessf*f*zz*sin_phi;}
+    if (cone.min_z > z - thicknessf*f*zz*sin_phi) {cone.min_z = z - thicknessf*f*zz*sin_phi;}
+    float r = (z/h)*d_rim/2 + (1.0-z/h)*d_foot/2 + thicknessf*f*zz*cos_phi;
+    float theta = 2.0*3.1415*( xx / w );
+
+	xprime[0] = (r*cos(theta)); 
+	xprime[1] = (r*sin(theta)) ;//
+	xprime[2] = z - thicknessf*f*x[2]*sin_phi;
+    //print "      vertex", (r*cos(theta)), (r*sin(theta)), z - thicknessf*f*$4*sin_phi
 
 }
 
+//}
 
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
@@ -91,19 +128,44 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 	b[2] = v3[2] - v1[2];
 
 	n[0] = a[1]*b[2] - a[2]*b[1];
-	n[1] = a[0]*b[2] - a[2]*b[0];
+	n[1] = a[2]*b[0] - a[0]*b[2];
 	n[2] = a[0]*b[1] - a[1]*b[0];
 	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
-	n[0] *= l;
-	n[1] *= l;
-	n[2] *= l;
+	n[0] /= l;
+	n[1] /= l;
+	n[2] /= l;
 }
 
-void print_triangle( float* v1, float* v2, float* v3 ) {
 
-	transform(v1);
-	transform(v2);
-	transform(v3);
+void print_triangle_raw( float* v1, float* v2, float* v3 ) {
+
+
+	float n[3];
+	triangle_normal(v1,v2,v3,&n[0]);
+
+	//printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	printf("  facet normal %f %f %f\n", 0.0,0.0,0.0);
+	printf("    outer loop\n");
+	printf("      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
+	printf("      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+	printf("      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	printf("    endloop\n");
+	printf("  endfacet\n");
+
+
+}
+
+
+
+void print_triangle( float* z1, float* z2, float* z3 ) {
+
+	float v1[3];
+	float v2[3];
+	float v3[3];
+
+	transform(v1,z1);
+	transform(v2,z2);
+	transform(v3,z3);
 
 	float n[3];
 	triangle_normal(v1,v2,v3,&n[0]);
@@ -116,9 +178,83 @@ void print_triangle( float* v1, float* v2, float* v3 ) {
 	printf("    endloop\n");
 	printf("  endfacet\n");
 
-
 }
 
+void print_cone_triangles() {
+	float h = cone.height;
+	//float th = 0.1 ; //; cone.thickness;
+    float d_foot = cone.foot;
+    float d_rim = cone.mouth;
+
+    if (cone.max_z < h) {cone.max_z = h;}
+
+    int n_segs = 200; 
+    float d_theta = 2.0*3.1415/n_segs;
+    for (int i = 0; i < n_segs; ++i) {
+        float theta1 = i*d_theta;
+        float theta2 = theta1+d_theta;
+        float h1 = cone.min_z;
+        float h2 = cone.max_z;
+        float r1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 ;
+        float r2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 ;
+
+		//float p1[3] = { (r1-th)*cos(theta1), (r1-th)*sin(theta1), h1 };
+		//float p2[3] = { (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1 };
+		//float p3[3] = { (r2-th)*cos(theta1),  (r2-th)*sin(theta1), h2};
+
+		float c1[3] = {0,0,h1};
+		float c2[3] = {0,0,h2};
+		float p1[3] = { (r1)*cos(theta1), (r1)*sin(theta1), h1 };
+		float p2[3] = { (r1)*cos(theta2),  (r1)*sin(theta2), h1 };
+		float p3[3] = { (r2)*cos(theta1),  (r2)*sin(theta1), h2};
+		float p4[3] = { (r2)*cos(theta2),  (r2)*sin(theta2), h2};
+
+		print_triangle_raw(&p1[0],&p2[0],&p3[0]);
+		print_triangle_raw(&p3[0],&p2[0],&p4[0]);
+		print_triangle_raw(&c1[0],&p2[0],&p1[0]);
+		print_triangle_raw(&c2[0],&p3[0],&p4[0]);
+	}
+
+
+/*
+        
+    #outer tall triangles
+        print "  facet normal " cos(theta1), sin(theta1), 0
+        print "    outer loop"
+        print "      vertex ", (r1-th)*cos(theta1),  (r1-th)*sin(theta1), h1
+        print "      vertex ", (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1
+        print "      vertex ", (r2-th)*cos(theta1),  (r2-th)*sin(theta1), h2
+        print "    endloop"
+        print "  endfacet"
+
+        print "  facet normal " cos(theta1), sin(theta1), 0
+        print "    outer loop"
+        print "      vertex ", (r2-th)*cos(theta2),  (r2-th)*sin(theta2), h2
+        print "      vertex ", (r2-th)*cos(theta1),  (r2-th)*sin(theta1), h2
+        print "      vertex ", (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1
+        print "    endloop"
+        print "  endfacet"
+
+    #top   triangles
+        print "  facet normal 0 0 1"
+        print "    outer loop"
+        print "      vertex ", 0, 0, h2
+        print "      vertex ", (r2-th)*cos(theta1), (r2-th)*sin(theta1), h2
+        print "      vertex ", (r2-th)*cos(theta2), (r2-th)*sin(theta2), h2
+        print "    endloop"
+        print "  endfacet"
+
+    #bottom  triangles
+        print "  facet normal 0 0 -1"
+        print "    outer loop"
+        print "      vertex ", 0, 0, h1
+        print "      vertex ", (r1-th)*cos(theta2), (r1-th)*sin(theta2), h1
+        print "      vertex ", (r1-th)*cos(theta1), (r1-th)*sin(theta1), h1
+        print "    endloop"
+        print "  endfacet"
+*/
+
+}
 void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness) {
 
 	float v1[3] = { last_x, last_y, thickness } ;
@@ -131,24 +267,6 @@ void print_quad(float last_x, float last_y, float this_x, float this_y, float th
 	print_triangle(v1,v2,v3); 
 	print_triangle(v3,v2,v4); 
 
-/*
-	//print_quad( last_x, last_y, this_x, this_y );
-	printf("  facet normal 0 0 0\n");
-	printf("    outer loop\n");
-	printf("      vertex %f %f %f\n",last_x,last_y,thickness);
-	printf("      vertex %f %f %f\n",this_x,this_y,thickness);
-	printf("      vertex %f %f %f\n",last_x,last_y,-thickness);
-	printf("    endloop\n");
-	printf("  endfacet\n");
-
-	printf("  facet normal 0 0 0\n");
-	printf("    outer loop\n");
-	printf("      vertex %f %f %f\n",last_x,last_y,-thickness);
-	printf("      vertex %f %f %f\n",this_x,this_y,thickness);
-	printf("      vertex %f %f %f\n",this_x,this_y,-thickness);
-	printf("    endloop\n");
-	printf("  endfacet\n");
-	*/
 
 }
 
@@ -178,11 +296,15 @@ int main(int argc, char *argv[])
 	bg = svgParseFromFile(argv[1]);
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 	float thickness = atof(argv[2]);
+	cone.thickness = thickness;
 
 	if (argc>3) {
 		cone.foot = atof(argv[3]);
 		cone.mouth = atof(argv[4]);
 		cone.height = atof(argv[5]);
+		cone.w = atof(argv[6]);
+		cone.max_z =0.0;
+		cone.min_z = 0.0;
 	}
 
 	//printf("#thickness %f\n",thickness);
@@ -209,12 +331,12 @@ int main(int argc, char *argv[])
 		}
 	cx = (bounds[0]+bounds[2])/2;
 	cy = (bounds[1]+bounds[3])/2;
-	width = bounds[2]-bounds[0];
+	width = bounds[2]-bounds[0]; 
 	height = bounds[3]-bounds[1];
 
-	cone.w = width;
-	cone.HH = height;
-
+	//cone.w = bounds[2]-bounds[0];
+	cone.HH = bounds[3]-bounds[1];
+	printf("width:%f\n",cone.w);
 	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
 	//printf("n input vertices: %d\n",np); fflush(stdout);
 
@@ -243,9 +365,23 @@ int main(int argc, char *argv[])
 			for (it = bg; it != NULL; it = it->next)
 				tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
 			
+				float dx = width / 200.0;
+				for (float x=bounds[0]-1.0;x<bounds[2];x+=dx) {
+					fb[0] = x;
+					fb[1] = bounds[1]-1.0;
+					fb[2] = x;
+					fb[3] = bounds[3]+1.0;
+					fb[4] = x+dx;
+					fb[5] = bounds[3]+1.0;
+					fb[6] = x+dx;
+					fb[7] = bounds[1]-1.0;
+					tessAddContour(tess, 2, fb, sizeof(float)*2, 4);
+
+				}
+
 #if 1
 		// First combine contours and then triangulate, this removes unnecessary inner vertices.
-			if (tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
+			if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
 			//if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
 			{
 				const float* verts = tessGetVertices(tess);
@@ -396,13 +532,20 @@ int main(int argc, char *argv[])
 
 						print_triangle(v1,v3,v2);
 
-
 					}
 
 				}
 
 		}
-			printf("endsolid x\n");
+	
+	
+	print_cone_triangles();
+	
+	
+	
+	printf("endsolid x\n");
+
+
 
 	return 0;
 }
