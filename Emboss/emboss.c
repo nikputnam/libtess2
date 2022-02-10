@@ -75,6 +75,13 @@ int cdt = 0;
 
 //a×b=(a2b3−a3b2)i−(a1b3−a3b1)j+(a1b2−a2b1)k.
 
+void idTransform(float* xprime, float *x) {
+	xprime[0] = x[0];
+	xprime[1] = x[1];
+	xprime[2] = x[2];
+
+}
+
 void transform(float* xprime, float *x) {
 
     float d_foot = cone.foot;
@@ -163,10 +170,15 @@ void print_triangle( float* z1, float* z2, float* z3 ) {
 	float v2[3];
 	float v3[3];
 
+#if 1
 	transform(v1,z1);
 	transform(v2,z2);
 	transform(v3,z3);
-
+#else
+	idTransform(v1,z1);
+	idTransform(v2,z2);
+	idTransform(v3,z3);
+#endif
 	float n[3];
 	triangle_normal(v1,v2,v3,&n[0]);
 
@@ -321,6 +333,8 @@ int main(int argc, char *argv[])
 				const float x = it->pts[i*2];
 				const float y = it->pts[i*2+1];
 				//printf("%f %f\n",x,y);
+				printf( "x: %f %f\n", x,y );
+
 				np+=1;
 				if (x < bounds[0]) bounds[0] = x;
 				if (y < bounds[1]) bounds[1] = y;
@@ -337,23 +351,24 @@ int main(int argc, char *argv[])
 	//cone.w = bounds[2]-bounds[0];
 	cone.HH = bounds[3]-bounds[1];
 	printf("width:%f\n",cone.w);
+	printf("bounds: %f,%f %f,%f\n",bounds[0],bounds[1],bounds[2],bounds[3]); fflush(stdout);
 	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
 	//printf("n input vertices: %d\n",np); fflush(stdout);
 
-	mem = malloc( np*2048 );
+	mem = malloc( np*4096 );
 	//printf("mem=%x\n",mem);
-	memset(mem,0, np*2048 );
+	memset(mem,0, np*4096 );
 	//printf("allocate %d\n",np*1024); fflush(stdout);
 
 	pool.size = 0;
-	pool.cap = np*2048; //sizeof(mem);
+	pool.cap = np*4096; //sizeof(mem);
 	pool.buf = mem;
 	memset(&ma, 0, sizeof(ma));
 	//memset(&ma,0, sizeof(ma))
 	ma.memalloc = poolAlloc;
 	ma.memfree = poolFree;
 	ma.userData = (void*)&pool;
-	ma.extraVertices = 2048; // realloc not provided, allow 256 extra vertices.
+	ma.extraVertices = 4096; // realloc not provided, allow 256 extra vertices.
 
 
 		pool.size = 0; // reset pool
@@ -365,23 +380,10 @@ int main(int argc, char *argv[])
 			for (it = bg; it != NULL; it = it->next)
 				tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
 			
-				float dx = width / 200.0;
-				for (float x=bounds[0]-1.0;x<bounds[2];x+=dx) {
-					fb[0] = x;
-					fb[1] = bounds[1]-1.0;
-					fb[2] = x;
-					fb[3] = bounds[3]+1.0;
-					fb[4] = x+dx;
-					fb[5] = bounds[3]+1.0;
-					fb[6] = x+dx;
-					fb[7] = bounds[1]-1.0;
-					tessAddContour(tess, 2, fb, sizeof(float)*2, 4);
-
-				}
-
+		
 #if 1
 		// First combine contours and then triangulate, this removes unnecessary inner vertices.
-			if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
+			if (tessTesselate(tess, TESS_WINDING_ODD, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
 			//if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0))
 			{
 				const float* verts = tessGetVertices(tess);
@@ -414,14 +416,74 @@ int main(int argc, char *argv[])
 				{
 					int b = elems[i*2];
 					int n = elems[i*2+1];
-						//printf("tc:\n");
-						//printf("tc:\n");
+						printf("tc:\n");
+						printf("tc:\n");
 				//	printf("add contour %d/%d %d %d\n",i,nelems-1,b,n);
 
-					//for (j = 0; j < n; ++j)
-					//{
-					//	printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
-					//}
+					for (j = 0; j < n; ++j)
+					{
+						printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+					}
+
+					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
+				}
+
+				
+				float dx = width / 200.0;
+				for (float x=bounds[0]-1.0;x<bounds[2];x+=dx) {
+					fb[0] = x;
+					fb[1] = bounds[1]-1.0;
+					fb[2] = x;
+					fb[3] = bounds[3]+1.0;
+					fb[4] = x+dx;
+					fb[5] = bounds[3]+1.0;
+					fb[6] = x+dx;
+					fb[7] = bounds[1]-1.0;
+					tessAddContour(tess, 2, fb, sizeof(float)*2, 4);
+
+				}
+			}
+
+			if (tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_BOUNDARY_CONTOURS, 0, 0, 0)) {
+
+				const float* verts = tessGetVertices(tess);
+				const int* vinds = tessGetVertexIndices(tess);
+				const int nverts = tessGetVertexCount(tess);
+				const int* elems = tessGetElements(tess);
+				const int nelems = tessGetElementCount(tess);
+
+				if (nverts > nvflags)
+				{
+					if (vflags)
+						free(vflags);
+					nvflags = nverts;
+				//	printf("alloc %d vflags",nvflags);
+
+					vflags = (unsigned char*)malloc(sizeof(unsigned char)*nvflags);
+				}
+
+				if (vflags)
+				{
+					// Vertex indices describe the order the indices were added and can be used
+					// to map the tesselator output to input. Vertices marked as TESS_UNDEF
+					// are the ones that were created at the intersection of segments.
+					// That is, if vflags is set it means that the vertex comes from intersegment.
+					for (i = 0; i < nverts; ++i)
+						vflags[i] = vinds[i] == TESS_UNDEF ? 1 : 0;
+				}
+
+				for (i = 0; i < nelems; ++i)
+				{
+					int b = elems[i*2];
+					int n = elems[i*2+1];
+					//	printf("tc:\n");
+					//	printf("tc:\n");
+				//	printf("add contour %d/%d %d %d\n",i,nelems-1,b,n);
+
+					/*for (j = 0; j < n; ++j)
+					{
+						printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+					}*/
 
 					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
@@ -432,8 +494,6 @@ int main(int argc, char *argv[])
 					int b = elems[i*2];
 					int n = elems[i*2+1];
 
-						
-
 					//	printf("tc:\n");
 					//	printf("tc:\n");
 
@@ -443,15 +503,10 @@ int main(int argc, char *argv[])
 					float this_x; float this_y;
 					for (j = 1; j < n; ++j)
 					{
-						 this_x = verts[b*2+j*2];
-						 this_y = verts[b*2+j*2+1];
+						this_x = verts[b*2+j*2];
+						this_y = verts[b*2+j*2+1];
 
 						print_quad( last_x, last_y, this_x, this_y, thickness );
-						//printf("  facet normal 0 0 1\n");
-    					//printf("    outer loop\n");
-						//	printf("      vertex %f %f %f\n",verts[p[j]*2],verts[p[j]*2+1],1);
-						//printf("    endloop\n");
-						//printf("  endfacet\n");
 
 						last_x = this_x;
 						last_y = this_y;
