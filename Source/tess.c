@@ -345,7 +345,7 @@ int tessMeshTessellateMonoRegion( TESSmesh *mesh, TESSface *face )
 			while( lo->Lnext != up && (EdgeGoesLeft( lo->Lnext )
 				|| EdgeSign( lo->Org, lo->Dst, lo->Lnext->Dst ) <= 0 )) {
 					TESShalfEdge *tempHalfEdge= tessMeshConnect( mesh, lo->Lnext, lo );
-					if (tempHalfEdge == NULL) { printf("tempHalfEdge == NULL1\n"); return 0; }
+					if (tempHalfEdge == NULL) return 0;
 					lo = tempHalfEdge->Sym;
 			}
 			lo = lo->Lprev;
@@ -354,7 +354,7 @@ int tessMeshTessellateMonoRegion( TESSmesh *mesh, TESSface *face )
 			while( lo->Lnext != up && (EdgeGoesRight( up->Lprev )
 				|| EdgeSign( up->Dst, up->Org, up->Lprev->Org ) >= 0 )) {
 					TESShalfEdge *tempHalfEdge= tessMeshConnect( mesh, up, up->Lprev );
-					if (tempHalfEdge == NULL) { printf("tempHalfEdge == NULL2\n"); return 0; }
+					if (tempHalfEdge == NULL) return 0;
 					up = tempHalfEdge->Sym;
 			}
 			up = up->Lnext;
@@ -387,10 +387,7 @@ int tessMeshTessellateInterior( TESSmesh *mesh )
 		/* Make sure we don''t try to tessellate the new triangles. */
 		next = f->next;
 		if( f->inside ) {
-			if ( !tessMeshTessellateMonoRegion( mesh, f ) ) { 
-				printf("!tessMeshTessellateMonoRegion( mesh, f )\n");  
-				return 0; 
-			}
+			if ( !tessMeshTessellateMonoRegion( mesh, f ) ) return 0;
 		}
 	}
 	return 1;
@@ -898,10 +895,10 @@ void OutputContours( TESStesselator *tess, TESSmesh *mesh, int vertexSize )
 		start = edge = f->anEdge;
 		do
 		{
-			for (int i=0;i<MAX_DIMENSIONS && i<vertexSize ;i++) {
-				*verts++ = edge->Org->coords[i];
-			}
-
+			*verts++ = edge->Org->coords[0];
+			*verts++ = edge->Org->coords[1];
+			if ( vertexSize > 2 )
+				*verts++ = edge->Org->coords[2];
 			*vertInds++ = edge->Org->idx;
 			++vertCount;
 			edge = edge->Lnext;
@@ -967,17 +964,10 @@ void tessAddContour( TESStesselator *tess, int size, const void* vertices,
 		/* The new vertex is now e->Org. */
 		e->Org->coords[0] = coords[0];
 		e->Org->coords[1] = coords[1];
-		int j = 2;
-		for(; j<MAX_DIMENSIONS && j<size;j++) {
-			e->Org->coords[j] = coords[j];
-			//printf("## %d\n",j);
-		}
-		for(; j<MAX_DIMENSIONS;j++) {
-			e->Org->coords[j] = 0;
-			//printf("### %d\n",j);
-
-		}
-		
+		if ( size > 2 )
+			e->Org->coords[2] = coords[2];
+		else
+			e->Org->coords[2] = 0;
 		/* Store the insertion number so that the vertex can be later recognized. */
 		e->Org->idx = tess->vertexIndexCounter++;
 
@@ -1037,18 +1027,16 @@ int tessTesselate( TESStesselator *tess, int windingRule, int elementType,
 
 	if (vertexSize < 2)
 		vertexSize = 2;
-	if (vertexSize > MAX_DIMENSIONS)
-		vertexSize = MAX_DIMENSIONS;
+	if (vertexSize > 3)
+		vertexSize = 3;
 
 	if (setjmp(tess->env) != 0) {
 		/* come back here if out of memory */
-		printf("longjmp wasn't zero\n");
 		return 0;
 	}
 
 	if (!tess->mesh)
 	{
-		printf("no mesh\n");
 		return 0;
 	}
 
@@ -1064,7 +1052,6 @@ int tessTesselate( TESStesselator *tess, int windingRule, int elementType,
 	* Each interior region is guaranteed be monotone.
 	*/
 	if ( !tessComputeInterior( tess ) ) {
-		printf("!tessComputeInterior\n");
 		longjmp(tess->env,1);  /* could've used a label */
 	}
 
@@ -1081,11 +1068,7 @@ int tessTesselate( TESStesselator *tess, int windingRule, int elementType,
 		if (rc != 0 && tess->processCDT != 0)
 			tessMeshRefineDelaunay( mesh, &tess->alloc );
 	}
-	if (rc == 0) { 
-		printf("elementType == TESS_BOUNDARY_CONTOURS = %d\n", elementType == TESS_BOUNDARY_CONTOURS) ; 
-		printf("rc == 0\n"); 
-		longjmp(tess->env,1); 
-	} /* could've used a label */
+	if (rc == 0) longjmp(tess->env,1);  /* could've used a label */
 
 	tessMeshCheckMesh( mesh );
 
@@ -1100,11 +1083,8 @@ int tessTesselate( TESStesselator *tess, int windingRule, int elementType,
 	tessMeshDeleteMesh( &tess->alloc, mesh );
 	tess->mesh = NULL;
 
-	if (tess->outOfMemory) {
-		printf("out of memory\n");
-
+	if (tess->outOfMemory)
 		return 0;
-	}
 	return 1;
 }
 
