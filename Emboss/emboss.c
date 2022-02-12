@@ -7,6 +7,8 @@
 #include "nanosvg.h"
 #include "tesselator.h"
 
+
+
 struct ConeParams {
 	float w;
 	float HH;
@@ -19,6 +21,40 @@ struct ConeParams {
 	//-v w=$maxx -v HH=$maxy -v foot=$foot -v mouth=$mouth -v height=$height 
 } cone ;
 
+
+//https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+#define M(I,J) m[I*3+J]
+/*
+    [ cos(theta)+ux^2*(1-cos(theta))        ux*uy*(1-cos(theta)) - uz*sin(theta)    ux*uz*(1-cos(theta)) + uy*sin(theta)  ]
+R = [ uy*ux*(1-cos(theta)) + uz*sin(theta)  cos(theta)+uy^2*(1-cos(theta))          uy*uz*(1-cos(theta)) - ux*sin(theta) ]
+    [ uz*ux*(1-cos(theta)) - uy*sin(theta)  uz*uy*(1-cos(theta)) + ux*sin(theta)    cos(theta)+uz^2*(1-cos(theta))        ]
+*/
+
+
+void rotationMatrix(float theta, float* u, float* m) {
+	float ux = u[0];
+	float uy = u[1];
+	float uz = u[2];
+
+	M(0,0) = cos(theta)+ux*ux*(1-cos(theta));
+	M(0,1) = ux*uy*(1-cos(theta)) - uz*sin(theta);
+	M(0,2) = ux*uz*(1-cos(theta)) + uy*sin(theta) ;
+
+	M(1,0) = uy*ux*(1-cos(theta)) + uz*sin(theta);
+	M(1,1) = cos(theta)+uy*uy*(1-cos(theta));
+	M(1,2) = uy*uz*(1-cos(theta)) - ux*sin(theta) ;
+
+	M(2,0) = uz*ux*(1-cos(theta)) - uy*sin(theta);
+	M(2,1) = uz*uy*(1-cos(theta)) + ux*sin(theta) ;
+	M(2,2) = cos(theta)+uz*uz*(1-cos(theta)) ;
+
+}
+
+void matrixMultiply(float* m, float* x, float* r) {
+	r[0] = M(0,0)*x[0] + M(0,1)*x[0] + M(0,2)*x[2];
+	r[1] = M(1,0)*x[0] + M(1,1)*x[0] + M(1,2)*x[2];
+	r[2] = M(2,0)*x[0] + M(2,1)*x[0] + M(2,2)*x[2];
+}
 
 void* stdAlloc(void* userData, unsigned int size)
 {
@@ -88,14 +124,14 @@ void transform(float* xprime, float *x) {
     float d_rim = cone.mouth;
     float h = cone.height ;
 	float w = cone.w;
-    float f = d_foot * 3.1415 / w ; 
+    float f = d_foot * M_PI / w ; 
     float s = (d_foot*h)/(d_rim-d_foot);
     float r1 = sqrt( s*s + 0.25*d_foot*d_foot );
     float sin_phi = 0.5*d_foot / r1;
     float cos_phi = s / r1;
     //float th = 0.0*f;
     float thicknessf = 1.0;
-    float theta0 = d_foot * 3.1415 / r1;
+    float theta0 = d_foot * M_PI / r1;
     float a=r1;
     float c=w/theta0;
 
@@ -110,7 +146,7 @@ void transform(float* xprime, float *x) {
     if (cone.max_z < z - thicknessf*f*zz*sin_phi) {cone.max_z = z - thicknessf*f*zz*sin_phi;}
     if (cone.min_z > z - thicknessf*f*zz*sin_phi) {cone.min_z = z - thicknessf*f*zz*sin_phi;}
     float r = (z/h)*d_rim/2 + (1.0-z/h)*d_foot/2 + thicknessf*f*zz*cos_phi;
-    float theta = 2.0*3.1415*( xx / w );
+    float theta = 2.0*M_PI*( xx / w );
 
 	xprime[0] = (r*cos(theta)); 
 	xprime[1] = (r*sin(theta)) ;//
@@ -120,6 +156,23 @@ void transform(float* xprime, float *x) {
 }
 
 //}
+
+float norm(float* n) {
+	return sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
+}
+
+void normalize(float* n, float* r) {
+	float nn = norm( n );
+	r[0] = n[0] / nn ;
+	r[1] = n[1] / nn ;
+	r[2] = n[2] / nn ;
+}
+
+void cross_product(float* a, float* b, float* n) {
+	n[0] = a[1]*b[2] - a[2]*b[1];
+	n[1] = a[2]*b[0] - a[0]*b[2];
+	n[2] = a[0]*b[1] - a[1]*b[0];
+}
 
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
@@ -134,9 +187,8 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 	b[1] = v3[1] - v1[1];
 	b[2] = v3[2] - v1[2];
 
-	n[0] = a[1]*b[2] - a[2]*b[1];
-	n[1] = a[2]*b[0] - a[0]*b[2];
-	n[2] = a[0]*b[1] - a[1]*b[0];
+	cross_product( &a[0], &b[0], &n[0] );
+
 	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
 	n[0] /= l;
 	n[1] /= l;
@@ -192,23 +244,29 @@ void print_triangle( float* z1, float* z2, float* z3 ) {
 
 }
 
-void print_cone_triangles() {
-	float h = cone.height;
-	//float th = 0.1 ; //; cone.thickness;
+void print_cone_triangles(float thickness) {
+
     float d_foot = cone.foot;
     float d_rim = cone.mouth;
+    float h = cone.height ;
+	float w = cone.w;
+    float f = d_foot * M_PI / w ; 
+    float s = (d_foot*h)/(d_rim-d_foot);
+    float r1 = sqrt( s*s + 0.25*d_foot*d_foot );
+    //float sin_phi = 0.5*d_foot / r1;
+    float cos_phi = s / r1;
 
     if (cone.max_z < h) {cone.max_z = h;}
 
     int n_segs = 200; 
-    float d_theta = 2.0*3.1415/n_segs;
+    float d_theta = 2.0*M_PI/n_segs;
     for (int i = 0; i < n_segs; ++i) {
         float theta1 = i*d_theta;
         float theta2 = theta1+d_theta;
         float h1 = cone.min_z;
         float h2 = cone.max_z;
-        float r1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 ;
-        float r2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 ;
+        float r1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - f*thickness/cos_phi ;
+        float r2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - f*thickness/cos_phi ;
 
 		//float p1[3] = { (r1-th)*cos(theta1), (r1-th)*sin(theta1), h1 };
 		//float p2[3] = { (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1 };
@@ -267,12 +325,68 @@ void print_cone_triangles() {
 */
 
 }
-void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness) {
 
-	float v1[3] = { last_x, last_y, thickness } ;
-	float v2[3] = { this_x, this_y, thickness } ;
-	float v3[3] = { last_x, last_y, -thickness } ;
-	float v4[3] = { this_x, this_y, -thickness } ;
+float dot(float* x, float* y) {
+	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
+}
+
+void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer) {
+	float t1[3] = { x2[0] - x1[0], x2[1] - x1[1] , 0 };
+	float t2[3] = { x3[0] - x2[0], x3[1] - x2[1] , 0 };
+	float normal[3] = { 0,0, -1 };
+
+	float tn1[3];
+	float tn2[3];
+
+	float m1[9];
+	float m2[9];
+
+	float t1xt2[3];
+
+	normalize(&t1[0],&tn1[0]);
+	normalize(&t2[0],&tn2[0]);
+
+	cross_product(&tn1[0],&tn2[0],&t1xt2[0]);
+
+	if (dot(&t1xt2[0], normal ) <0.0) {return ; }
+
+	rotationMatrix(chamfer, tn1, &m1[0]);
+	rotationMatrix(chamfer, tn2, &m2[0]);
+
+	float chamfer_v1[3]; //  = { 0,0, 1 };
+	float chamfer_v2[3]; //  = { 0,0, 1 };
+
+	matrixMultiply(&m1[0],&normal[0],&chamfer_v1[0]);
+	matrixMultiply(&m2[0],&normal[0],&chamfer_v2[0]);
+	float r = thickness / cos(chamfer);
+
+	float v1[3] = { x2[0], x2[1], 0 } ;
+	//float v2[3] = { this_x, this_y, 0 } ;
+	float v2[3] = { x2[0] + r*chamfer_v1[0], x2[1] + r*chamfer_v1[1], r*chamfer_v1[2]  } ;
+	float v3[3] = { x2[0] + r*chamfer_v2[0], x2[1] + r*chamfer_v2[1], r*chamfer_v2[2]  } ;
+
+	print_triangle(v1,v3,v2); 
+
+
+}
+
+
+void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness, float chamfer) {
+
+	float t[3] = { this_x - last_x, this_y - last_y , 0 };
+	float normal[3] = { 0,0, -1 };
+	float chamfer_v[3]; //  = { 0,0, 1 };
+	float tn[3] ;
+	float m[9];
+	normalize(&t[0],&tn[0]);
+	rotationMatrix(chamfer, tn, &m[0]);
+	matrixMultiply(&m[0],&normal[0],&chamfer_v[0]);
+
+	float r = thickness / cos(chamfer);
+	float v1[3] = { last_x, last_y, 0 } ;
+	float v2[3] = { this_x, this_y, 0 } ;
+	float v3[3] = { last_x + r*chamfer_v[0], last_y + r*chamfer_v[1], r*chamfer_v[2]  } ;
+	float v4[3] = { this_x + r*chamfer_v[0], this_y + r*chamfer_v[1], r*chamfer_v[2]  } ;
 
 //	v1 = {}; 
 
@@ -287,9 +401,9 @@ int main(int argc, char *argv[])
 	//struct SVGPath* bg;
 	NSVGimage *bg = NULL;
 
-	struct SVGPath* it;
+	//struct SVGPath* it;
 	float bounds[4];
-
+	float chamfer;
 	//coneParams cone;
 
 	int width,height,i,j;
@@ -308,11 +422,12 @@ int main(int argc, char *argv[])
 
 	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
 	//bg = svgParseFromFile(argv[1]);
-	bg = nsvgParseFromFile(argv[1], "px", 96.0f);
+	bg = nsvgParseFromFile(argv[1], "px", 1136.0f);
 
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 	float thickness = atof(argv[2]);
 	cone.thickness = thickness;
+	chamfer = atof(argv[7]);
 
 	if (argc>3) {
 		cone.foot = atof(argv[3]);
@@ -340,6 +455,7 @@ int main(int argc, char *argv[])
 
 				if (!done_init) {
 					done_init = 1;
+					//printf("init\n");
 						bounds[0] = bounds[2] = x;
 						bounds[1] = bounds[3] = y;
 				} 
@@ -379,8 +495,8 @@ int main(int argc, char *argv[])
 	width = bounds[2]-bounds[0]; 
 	height = bounds[3]-bounds[1];
 
-	cone.w = bounds[2]-bounds[0];
-	cone.HH = bounds[3]-bounds[1];
+	cone.w = width;
+	cone.HH = bounds[3]-bounds[1]-1.0;
 	//printf("width:%f\n",cone.w);
 	//printf("bounds: %f,%f %f,%f\n",bounds[0],bounds[1],bounds[2],bounds[3]); fflush(stdout);
 	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
@@ -551,7 +667,7 @@ int main(int argc, char *argv[])
 						this_x = verts[b*2+j*2];
 						this_y = verts[b*2+j*2+1];
 
-						print_quad( last_x, last_y, this_x, this_y, thickness );
+						print_quad( last_x, last_y, this_x, this_y, thickness, chamfer);
 
 						last_x = this_x;
 						last_y = this_y;
@@ -560,9 +676,29 @@ int main(int argc, char *argv[])
 
 					this_x = verts[b*2];
 					this_y = verts[b*2+1];
-					print_quad( last_x, last_y, this_x, this_y, thickness );
+					print_quad( last_x, last_y, this_x, this_y, thickness, chamfer );
 
 					//tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
+				}
+
+				//side wall patches between chamfered rectangles
+				for (i = 0; i < nelems; ++i)
+				{
+				
+					int b = elems[i*2];
+					int n = elems[i*2+1];
+
+					for (j = 0; j < n; ++j)
+					{
+						float x1[2] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] } ;
+						float x2[2] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1] } ;
+						float x3[2] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] } ;
+						//float x4[2] = { verts[b*2+((j+3)%n)*2], verts[b*2+((j+3)%n)*2+1] } ;
+
+						print_patch( x1,x2,x3, thickness, chamfer);
+
+					}
+
 				}
 
 
@@ -626,9 +762,9 @@ int main(int argc, char *argv[])
 
 						print_triangle(v1,v2,v3);
 
-						v1[2]*=-1.0;
-						v2[2]*=-1.0;
-						v3[2]*=-1.0;
+						v1[2] = 0.0;
+						v2[2] = 0.0;
+						v3[2] = 0.0;
 
 						print_triangle(v1,v3,v2);
 
@@ -639,7 +775,7 @@ int main(int argc, char *argv[])
 		}
 	
 	
-	print_cone_triangles();
+	print_cone_triangles(thickness);
 	
 	
 	
