@@ -348,7 +348,7 @@ void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer)
 
 	cross_product(&tn1[0],&tn2[0],&t1xt2[0]);
 
-	if (dot(&t1xt2[0], normal ) <0.0) {return ; }
+	//if (dot(&t1xt2[0], normal ) <0.0) {return ; }
 
 	rotationMatrix(chamfer, tn1, &m1[0]);
 	rotationMatrix(chamfer, tn2, &m2[0]);
@@ -364,12 +364,50 @@ void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer)
 	//float v2[3] = { this_x, this_y, 0 } ;
 	float v2[3] = { x2[0] + r*chamfer_v1[0], x2[1] + r*chamfer_v1[1], r*chamfer_v1[2]  } ;
 	float v3[3] = { x2[0] + r*chamfer_v2[0], x2[1] + r*chamfer_v2[1], r*chamfer_v2[2]  } ;
+	float v4[3] = { x2[0], x2[1], -thickness } ;
 
 	print_triangle(v1,v3,v2); 
+	//print_triangle(v1,v2,v4); 
+	print_triangle(v2,v3,v4); 
+	//print_triangle(v1,v4,v3); 
 
 
 }
 
+void print_wedge(float* x10, float* x20,float thickness, float chamfer ) {
+	float x1[3] = { x10[0], x10[1], 0 };
+	float x2[3] = { x20[0], x20[1], 0 };
+	float t[3] = { x2[0]-x1[0], x2[1]-x1[1], 0 };  // tangent
+	float normal[3] = { 0,0, -1 };
+	float chamfer_v[3]; //  = { 0,0, 1 };
+	float tn[3] ;
+	float m[9];
+	normalize(&t[0],&tn[0]);  
+	rotationMatrix(chamfer, tn, &m[0]);
+	matrixMultiply(&m[0],&normal[0],&chamfer_v[0]);
+
+	float r = thickness / cos(chamfer);
+	//float v1[3] = { last_x, last_y, 0 } ;
+	//float v2[3] = { this_x, this_y, 0 } ;
+
+	float x3[3] = { x1[0] + r*chamfer_v[0], x1[1] + r*chamfer_v[1], r*chamfer_v[2]  } ;
+	float x4[3] = { x2[0] + r*chamfer_v[0], x2[1] + r*chamfer_v[1], r*chamfer_v[2]  } ;
+
+	float x5[3] = { x1[0] , x1[1] , -thickness };
+	float x6[3] = { x2[0] , x2[1] , -thickness };
+
+//	v1 = {}; 
+
+	print_triangle(x1,x2,x3); 
+	print_triangle(x3,x2,x4); 
+	//print_triangle(x1,x3,x5); 
+	//print_triangle(x4,x2,x6); 
+	print_triangle(x6,x5,x3); 
+	print_triangle(x4,x6,x3); 
+	print_triangle(x2,x1,x5); 
+	print_triangle(x2,x5,x6); 
+
+}
 
 void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness, float chamfer) {
 
@@ -497,6 +535,11 @@ int main(int argc, char *argv[])
 
 	cone.w = width;
 	cone.HH = bounds[3]-bounds[1]-1.0;
+	cone.thickness /= (cone.foot * M_PI / cone.w);
+	thickness = cone.thickness;
+	//printf("thickness %f\n",cone.thickness);
+
+
 	//printf("width:%f\n",cone.w);
 	//printf("bounds: %f,%f %f,%f\n",bounds[0],bounds[1],bounds[2],bounds[3]); fflush(stdout);
 	//printf("center: %f,%f\n",cx,cy); fflush(stdout);
@@ -658,25 +701,32 @@ int main(int argc, char *argv[])
 					//	printf("tc:\n");
 					//	printf("tc:\n");
 
-					float last_x = verts[b*2];
-					float last_y = verts[b*2+1];
+				//	float last_x = verts[b*2];
+				//	float last_y = verts[b*2+1];
 
 					float this_x; float this_y;
-					for (j = 1; j < n; ++j)
+					for (j = 0; j < n; ++j)
 					{
-						this_x = verts[b*2+j*2];
-						this_y = verts[b*2+j*2+1];
+						float x1[2] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] } ;
+						float x2[2] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1] } ;
+					
+						//this_x = verts[b*2+j*2];
+						//this_y = verts[b*2+j*2+1];
 
-						print_quad( last_x, last_y, this_x, this_y, thickness, chamfer);
+						print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer);
 
-						last_x = this_x;
-						last_y = this_y;
+						print_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, 0.0);
+//						print_quad( last_x, last_y, this_x, this_y, thickness, chamfer);
+
+					//	last_x = this_x;
+					//	last_y = this_y;
 						//printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
 					}
-
-					this_x = verts[b*2];
-					this_y = verts[b*2+1];
-					print_quad( last_x, last_y, this_x, this_y, thickness, chamfer );
+//
+//					this_x = verts[b*2];//
+//					this_y = verts[b*2+1];
+//					print_quad( last_x, last_y, this_x, this_y, thickness, 0.0 );
+//					print_quad( last_x, last_y, this_x, this_y, thickness, chamfer );
 
 					//tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
@@ -695,7 +745,7 @@ int main(int argc, char *argv[])
 						float x3[2] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] } ;
 						//float x4[2] = { verts[b*2+((j+3)%n)*2], verts[b*2+((j+3)%n)*2+1] } ;
 
-						print_patch( x1,x2,x3, thickness, chamfer);
+						print_patch( x1,x2,x3, 1.1*thickness, chamfer);
 
 					}
 
@@ -756,9 +806,9 @@ int main(int argc, char *argv[])
 
 						const int* p = &elems[i*nvp];
 
-						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],-thickness };
-						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],-thickness };
-						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],-thickness };
+						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],-1.1*thickness };
+						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],-1.1*thickness };
+						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],-1.1*thickness };
 
 						print_triangle(v1,v2,v3);
 
