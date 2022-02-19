@@ -7,7 +7,9 @@
 #include "nanosvg.h"
 #include "tesselator.h"
 
-
+//#define TEST_GRID 0
+//#define CONE_ONLY 1
+#define SHELL 1
 
 struct ConeParams {
 	float w;
@@ -115,7 +117,6 @@ void idTransform(float* xprime, float *x) {
 	xprime[0] = x[0];
 	xprime[1] = x[1];
 	xprime[2] = x[2];
-
 }
 
 void transform(float* xprime, float *x) {
@@ -142,16 +143,22 @@ void transform(float* xprime, float *x) {
 	float yy = x[1];
 	float zz = x[2];
 
+    float theta = 2.0*M_PI*( 1.0-(xx / w) );
+
 	float z = exp( yy/c)*a-a;
     if (cone.max_z < z - thicknessf*f*zz*sin_phi) {cone.max_z = z - thicknessf*f*zz*sin_phi;}
     if (cone.min_z > z - thicknessf*f*zz*sin_phi) {cone.min_z = z - thicknessf*f*zz*sin_phi;}
     float r = (z/h)*d_rim/2 + (1.0-z/h)*d_foot/2 + thicknessf*f*zz*cos_phi;
-    float theta = 2.0*M_PI*( xx / w );
 
 	xprime[0] = (r*cos(theta)); 
 	xprime[1] = (r*sin(theta)) ;//
 	xprime[2] = z - thicknessf*f*x[2]*sin_phi;
     //print "      vertex", (r*cos(theta)), (r*sin(theta)), z - thicknessf*f*$4*sin_phi
+
+	if (isnan(xprime[0]) ) {
+		printf("NAN?  %f %f %f\n",xx,yy,zz);
+
+	} 
 
 }
 
@@ -190,6 +197,12 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 	cross_product( &a[0], &b[0], &n[0] );
 
 	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
+	if (l==0.0) { 
+		n[0]=0.0;
+		n[1]=0.0;
+		n[2]=0.0;
+		return;
+	}
 	n[0] /= l;
 	n[1] /= l;
 	n[2] /= l;
@@ -199,8 +212,8 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 void print_triangle_raw( float* v1, float* v2, float* v3 ) {
 
 
-	float n[3];
-	triangle_normal(v1,v2,v3,&n[0]);
+//	float n[3];
+	//triangle_normal(v1,v2,v3,&n[0]);
 
 	//printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	printf("  facet normal %f %f %f\n", 0.0,0.0,0.0);
@@ -213,8 +226,6 @@ void print_triangle_raw( float* v1, float* v2, float* v3 ) {
 
 
 }
-
-
 
 void print_triangle( float* z1, float* z2, float* z3 ) {
 
@@ -232,13 +243,17 @@ void print_triangle( float* z1, float* z2, float* z3 ) {
 	idTransform(v3,z3);
 #endif
 	float n[3];
-	triangle_normal(v1,v2,v3,&n[0]);
+	triangle_normal(v1,v3,v2,&n[0]);
+
+	if (n[0]==0.0 && n[1]==0.0 && n[2]==0.0) {return;}
 
 	printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	//printf("  facet normal %f %f %f\n", 0.0,0.0,0.0);
+
 	printf("    outer loop\n");
 	printf("      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
-	printf("      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
 	printf("      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	printf("      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
 	printf("    endloop\n");
 	printf("  endfacet\n");
 
@@ -258,31 +273,71 @@ void print_cone_triangles(float thickness) {
 
     if (cone.max_z < h) {cone.max_z = h;}
 
+	float zscale1 = 1.0;
+	float zscale2 = 1.0;
+
     int n_segs = 200; 
     float d_theta = 2.0*M_PI/n_segs;
     for (int i = 0; i < n_segs; ++i) {
         float theta1 = i*d_theta;
         float theta2 = theta1+d_theta;
-        float h1 = cone.min_z;
-        float h2 = cone.max_z;
-        float r1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - f*thickness/cos_phi ;
-        float r2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - f*thickness/cos_phi ;
+		if (i==n_segs-1) {theta2=0.0;} 
+
+#ifdef TEST_GRID
+	int sector1 = 1+((int) (theta1 / (M_PI/3.0))%3); 
+	int sector2 = 1+((int) (theta2 / (M_PI/3.0))%3); 
+	zscale1 = ((float) sector1) / (4.0);
+	zscale2 = ((float) sector2) / (4.0);
+#endif
+
+        float hB = cone.min_z;
+        float hT = cone.max_z;
+        float rB1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - zscale1*f*thickness/cos_phi ;
+        float rT1 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - zscale1*f*thickness/cos_phi ;
+        float rB2 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
+        float rT2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
 
 		//float p1[3] = { (r1-th)*cos(theta1), (r1-th)*sin(theta1), h1 };
 		//float p2[3] = { (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1 };
 		//float p3[3] = { (r2-th)*cos(theta1),  (r2-th)*sin(theta1), h2};
 
-		float c1[3] = {0,0,h1};
-		float c2[3] = {0,0,h2};
-		float p1[3] = { (r1)*cos(theta1), (r1)*sin(theta1), h1 };
-		float p2[3] = { (r1)*cos(theta2),  (r1)*sin(theta2), h1 };
-		float p3[3] = { (r2)*cos(theta1),  (r2)*sin(theta1), h2};
-		float p4[3] = { (r2)*cos(theta2),  (r2)*sin(theta2), h2};
+		float c1[3] = {0,0,hB};
+		float c2[3] = {0,0,hT};
+		float p1[3] = { (rB1)*cos(theta1), (rB1)*sin(theta1), hB };
+		float p2[3] = { (rB2)*cos(theta2),  (rB2)*sin(theta2), hB };
+		float p3[3] = { (rT1)*cos(theta1),  (rT1)*sin(theta1), hT};
+		float p4[3] = { (rT2)*cos(theta2),  (rT2)*sin(theta2), hT};
 
+		//outer
 		print_triangle_raw(&p1[0],&p2[0],&p3[0]);
 		print_triangle_raw(&p3[0],&p2[0],&p4[0]);
+
+#if SHELL
+
+		float p1i[3] = { (rB1-2.0)*cos(theta1), (rB1-2.0)*sin(theta1), hB };
+		float p2i[3] = { (rB2-2.0)*cos(theta2),  (rB2-2.0)*sin(theta2), hB };
+		float p3i[3] = { (rT1-2.0)*cos(theta1),  (rT1-2.0)*sin(theta1), hT};
+		float p4i[3] = { (rT2-2.0)*cos(theta2),  (rT2-2.0)*sin(theta2), hT};
+
+		//inner
+		print_triangle_raw(&p1i[0],&p3i[0],&p2i[0]);
+		print_triangle_raw(&p3i[0],&p4i[0],&p2i[0]);
+
+		//lip
+		print_triangle_raw(&p3i[0],&p3[0],&p4[0]);
+		print_triangle_raw(&p3i[0],&p4[0],&p4i[0]);
+
+
+		//foot
+		print_triangle_raw(&p2i[0],&p2[0],&p1[0]);
+		print_triangle_raw(&p2i[0],&p1[0],&p1i[0]);
+
+#else
+		//radial 
 		print_triangle_raw(&c1[0],&p2[0],&p1[0]);
 		print_triangle_raw(&c2[0],&p3[0],&p4[0]);
+#endif
+
 	}
 
 
@@ -465,7 +520,11 @@ int main(int argc, char *argv[])
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 	float thickness = atof(argv[2]);
 	cone.thickness = thickness;
-	chamfer = atof(argv[7]);
+	chamfer = (M_PI*atof(argv[7])/180.0);
+
+#ifdef TEST_GRID
+	float chamfer0 = chamfer;
+#endif
 
 	if (argc>3) {
 		cone.foot = atof(argv[3]);
@@ -704,7 +763,7 @@ int main(int argc, char *argv[])
 				//	float last_x = verts[b*2];
 				//	float last_y = verts[b*2+1];
 
-					float this_x; float this_y;
+					//float this_x; float this_y;
 					for (j = 0; j < n; ++j)
 					{
 						float x1[2] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] } ;
@@ -713,23 +772,25 @@ int main(int argc, char *argv[])
 						//this_x = verts[b*2+j*2];
 						//this_y = verts[b*2+j*2+1];
 
-						print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer);
+#ifdef TEST_GRID 
+					    float theta1 = 2.0*M_PI*( x1[0] / cone.w );
+						int sector1 = ((int) (theta1 / (2.0*M_PI/2.0)))%2; 
+						chamfer = chamfer0 * ((float) sector1);
+						//printf("chamfer %d %f %f\n",sector1,chamfer,0.0);//180.0*(theta1/M_PI));
+#endif
+
+#ifndef CONE_ONLY
+
+						if (chamfer>0.001) {
+						//	printf("chamfer %f\n",chamfer) ;
+							print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer);
+						} else 
 
 						print_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, 0.0);
-//						print_quad( last_x, last_y, this_x, this_y, thickness, chamfer);
-
-					//	last_x = this_x;
-					//	last_y = this_y;
-						//printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+#endif
 					}
-//
-//					this_x = verts[b*2];//
-//					this_y = verts[b*2+1];
-//					print_quad( last_x, last_y, this_x, this_y, thickness, 0.0 );
-//					print_quad( last_x, last_y, this_x, this_y, thickness, chamfer );
-
-					//tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
+
 
 				//side wall patches between chamfered rectangles
 				for (i = 0; i < nelems; ++i)
@@ -745,8 +806,17 @@ int main(int argc, char *argv[])
 						float x3[2] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] } ;
 						//float x4[2] = { verts[b*2+((j+3)%n)*2], verts[b*2+((j+3)%n)*2+1] } ;
 
-						print_patch( x1,x2,x3, 1.1*thickness, chamfer);
+#ifdef TEST_GRID 
+					    float theta1 = 2.0*M_PI*( x2[0] / cone.w );
+						int sector1 = ((int) (theta1 / (2.0*M_PI/2.0)))%2; 
+						chamfer = chamfer0 * ((float) sector1);
+#endif
+#ifndef CONE_ONLY
 
+						if (chamfer>0.001) {
+							print_patch( x1,x2,x3, 1.1*thickness, chamfer);
+						}
+#endif
 					}
 
 				}
@@ -801,6 +871,8 @@ int main(int argc, char *argv[])
 					// Draw polygons.
 					//glColor4ub(255,255,255,128);
 					// top
+#ifndef CONE_ONLY
+
 					for (i = 0; i < nelems; ++i)
 					{
 
@@ -819,6 +891,7 @@ int main(int argc, char *argv[])
 						print_triangle(v1,v3,v2);
 
 					}
+#endif
 
 				}
 
