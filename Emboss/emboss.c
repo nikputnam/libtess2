@@ -9,7 +9,8 @@
 
 //#define TEST_GRID 0
 //#define CONE_ONLY 1
-#define SHELL 1
+#define SHELL 0
+//#define FLAT 1
 
 struct ConeParams {
 	float w;
@@ -114,9 +115,9 @@ int cdt = 0;
 //a×b=(a2b3−a3b2)i−(a1b3−a3b1)j+(a1b2−a2b1)k.
 
 void idTransform(float* xprime, float *x) {
-	xprime[0] = x[0];
-	xprime[1] = x[1];
-	xprime[2] = x[2];
+	xprime[0] = ( x[0] / cone.w ) * cone.foot;
+	xprime[2] = ( x[1] / cone.w ) * cone.foot;
+	xprime[1] = ( x[2] / cone.w ) * cone.foot;
 }
 
 void transform(float* xprime, float *x) {
@@ -233,15 +234,16 @@ void print_triangle( float* z1, float* z2, float* z3 ) {
 	float v2[3];
 	float v3[3];
 
-#if 1
-	transform(v1,z1);
-	transform(v2,z2);
-	transform(v3,z3);
-#else
+#if FLAT
 	idTransform(v1,z1);
 	idTransform(v2,z2);
 	idTransform(v3,z3);
+#else
+	transform(v1,z1);
+	transform(v2,z2);
+	transform(v3,z3);
 #endif
+
 	float n[3];
 	triangle_normal(v1,v3,v2,&n[0]);
 
@@ -256,6 +258,39 @@ void print_triangle( float* z1, float* z2, float* z3 ) {
 	printf("      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
 	printf("    endloop\n");
 	printf("  endfacet\n");
+
+}
+
+void print_slab_triangles(float thickness) {
+
+	float p1[3] = { 0, 0, -thickness };
+	float p2[3] = { 0, cone.HH, -thickness };
+	float p3[3] = { cone.w, cone.HH, -thickness };
+	float p4[3] = { cone.w, 0, -thickness };
+
+	print_triangle(&p1[0],&p3[0],&p2[0]);
+	print_triangle(&p1[0],&p4[0],&p3[0]);
+
+	float p1b[3] = { 0, 0, -2.0*thickness };
+	float p2b[3] = { 0, cone.HH, -2.0*thickness };
+	float p3b[3] = { cone.w, cone.HH, -2.0*thickness };
+	float p4b[3] = { cone.w, 0, -2.0*thickness };
+
+	print_triangle(&p1b[0],&p2b[0],&p3b[0]);
+	print_triangle(&p1b[0],&p3b[0],&p4b[0]);
+
+	print_triangle(&p1b[0],&p4[0],&p1[0]);
+	print_triangle(&p1b[0],&p4b[0],&p4[0]);
+
+	print_triangle(&p4b[0],&p3[0],&p4[0]);
+	print_triangle(&p4b[0],&p3b[0],&p3[0]);
+
+	print_triangle(&p2[0],&p3[0],&p2b[0]);
+	print_triangle(&p2b[0],&p3[0],&p3b[0]);
+
+	print_triangle(&p2b[0],&p1[0],&p2[0]);
+	print_triangle(&p2b[0],&p1b[0],&p1[0]);
+
 
 }
 
@@ -594,7 +629,11 @@ int main(int argc, char *argv[])
 
 	cone.w = width;
 	cone.HH = bounds[3]-bounds[1]-1.0;
+#if FLAT
+    cone.thickness /= cone.foot / cone.w ;
+#else
 	cone.thickness /= (cone.foot * M_PI / cone.w);
+#endif
 	thickness = cone.thickness;
 	//printf("thickness %f\n",cone.thickness);
 
@@ -897,10 +936,13 @@ int main(int argc, char *argv[])
 
 		}
 	
-	
+#if 1
+#if FLAT
+	print_slab_triangles(thickness);
+#else
 	print_cone_triangles(thickness);
-	
-	
+#endif	
+#endif
 	
 	printf("endsolid x\n");
 
