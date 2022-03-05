@@ -9,7 +9,7 @@
 
 //#define TEST_GRID 0
 //#define CONE_ONLY 1
-#define SHELL 0
+//#define SHELL 0
 //#define FLAT 1
 
 struct ConeParams {
@@ -524,6 +524,35 @@ void print_quad(float last_x, float last_y, float this_x, float this_y, float th
 
 }
 
+
+				//drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+
+void cubicBez(float t, float* p0, float* p1, float* p2, float* p3, float* x) {
+	// B(t) = (1-t)^3 P0 + 3*(1-t)^2 t P1 + 3*(1-t)*t^2 P2 + t^3 P3
+	//   
+	x[0]=0.0;
+	x[1]=0.0;
+
+	float t_squared = t*t;
+	float t_cubed = t*t_squared;
+	float one_minus_t = 1.0-t;
+	float one_minus_t_squared = one_minus_t*one_minus_t;
+	float one_minus_t_cubed = one_minus_t*one_minus_t_squared;
+
+	x[0] += one_minus_t_cubed * p0[0];
+	x[1] += one_minus_t_cubed * p0[1];
+
+	x[0] += 3.0*one_minus_t_squared*t * p1[0];
+	x[1] += 3.0*one_minus_t_squared*t * p1[1];
+
+	x[0] += 3.0*one_minus_t*t_squared * p2[0];
+	x[1] += 3.0*one_minus_t*t_squared * p2[1];
+
+	x[0] += t_cubed * p3[0];
+	x[1] += t_cubed * p3[1];
+
+}
+
 int main(int argc, char *argv[])
 {
 	//struct SVGPath* bg;
@@ -550,7 +579,7 @@ int main(int argc, char *argv[])
 
 	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
 	//bg = svgParseFromFile(argv[1]);
-	bg = nsvgParseFromFile(argv[1], "px", 1136.0f);
+	bg = nsvgParseFromFile(argv[1], "px", 98.0f);
 
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 	float thickness = atof(argv[2]);
@@ -577,31 +606,78 @@ int main(int argc, char *argv[])
 	int np = 0;
 	int done_init=0;
 
+	float *p0, *p1, *p2, *p3; 
+
+	int n_points = 0;
+	int n_paths = 0;
+#define SAMPLES_PER_BEZ 5
+
 	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
-		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
-			//printf("x:\nx:\n");
-			for (int i = 0; i < path->npts; ++i) {
-				float* p = &path->pts[i*2];
-				const float x = p[0];
-				const float y = p[1];
-
-				if (!done_init) {
-					done_init = 1;
-					//printf("init\n");
-						bounds[0] = bounds[2] = x;
-						bounds[1] = bounds[3] = y;
-				} 
-
-				np+=1;
-				if (x < bounds[0]) bounds[0] = x;
-				if (y < bounds[1]) bounds[1] = y;
-				if (x > bounds[2]) bounds[2] = x;
-				if (y > bounds[3]) bounds[3] = y;
-				//printf( "x: %f %f\n", p[0],p[1] );
-				//drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {	
+			n_paths += 1;	
+			for (int i = 0; i < path->npts-1; i+=3) {
+				n_points += SAMPLES_PER_BEZ;
 			}
 		}
 	}
+
+	int *path_lengths = malloc( n_paths * sizeof(int) );
+	int *path_offsets = malloc( n_paths * sizeof(int) );
+	float *path_points = malloc( n_points * 2 * sizeof(float) );
+
+	int pi = 0;
+	int ppi = 0;
+
+	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
+		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+			//printf("x:\nx:\n");
+			path_offsets[pi]=ppi;
+			path_lengths[pi]=0;
+			for (int i = 0; i < path->npts-1; i+=3) {
+
+				//float* p = &path->pts[i*2];
+
+				p0 = &path->pts[i*2];
+				p1 = &path->pts[((i+1)%path->npts)*2];
+				p2 = &path->pts[((i+2)%path->npts)*2];
+				p3 = &path->pts[((i+3)%path->npts)*2];
+
+				float xx[2] = {0,0};
+				for (float t=0.0; t<1.0; t+=1.0/((float) (SAMPLES_PER_BEZ+1) ) ) {
+					path_lengths[pi]+=1;
+					cubicBez(t,p0,p1,p2,p3,&xx[0]);
+
+					const float x = xx[0];
+					const float y = xx[1];
+
+					if (!done_init) {
+						done_init = 1;
+						//printf("init\n");
+							bounds[0] = bounds[2] = x;
+							bounds[1] = bounds[3] = y;
+					} 
+
+					np+=1;
+					if (x < bounds[0]) bounds[0] = x;
+					if (y < bounds[1]) bounds[1] = y;
+					if (x > bounds[2]) bounds[2] = x;
+					if (y > bounds[3]) bounds[3] = y;
+					//printf( "x: %f %f\n", p[0],p[1] );
+
+					//printf( "x: %f %f\n", xx[0],xx[1] );
+					path_points[ppi  ] = xx[0];
+					path_points[ppi+1] = xx[1];
+					ppi+=2;
+
+				}
+
+				//drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+			}
+			pi+=1;
+		}
+	
+	}
+	fflush(stdout);
 /*
 	for (it = bg; it != NULL; it = it->next)
 		{
@@ -669,11 +745,18 @@ int main(int argc, char *argv[])
 //		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
 //			printf("x:\nx:\n");
 //			for (int i = 0; i < path->npts; ++i) {
+		for (int i =0; i<n_paths; i++) {
+			tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
+		}
+		/*
 			for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
 				for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
 					tessAddContour(tess, 2, path->pts, sizeof(float)*2, path->npts);
 				}
 			}
+			*/
+
+
 //				for (int i = 0; i < path->npts-1; i += 3) {
 
 			//for (it = bg; it != NULL; it = it->next)
