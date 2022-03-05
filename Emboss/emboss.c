@@ -21,6 +21,7 @@ struct ConeParams {
 	float max_z;
 	float min_z;
 	float thickness;
+	float funnel_height;
 	//-v w=$maxx -v HH=$maxy -v foot=$foot -v mouth=$mouth -v height=$height 
 } cone ;
 
@@ -327,27 +328,33 @@ void print_cone_triangles(float thickness) {
 
         float hB = cone.min_z;
         float hT = cone.max_z;
+		float hF = cone.max_z + cone.funnel_height ; // z for top of funnel 
         float rB1 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - zscale1*f*thickness/cos_phi ;
         float rT1 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - zscale1*f*thickness/cos_phi ;
-        float rB2 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
-        float rT2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
+
+        //float rF  = ((cone.max_z+cone.funnel_height)/h)*d_rim/2.0 + (1.0-(cone.max_z+cone.funnel_height)/h)*d_foot/2.0 - zscale1*f*thickness/cos_phi ;
+        //float rB2 = (cone.min_z/h)*d_rim/2.0 + (1.0-cone.min_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
+        //float rT2 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 - zscale2*f*thickness/cos_phi ;
+
+		//assert(rB1==rB2);
+		//assert(rT1==rT2);
 
 		//float p1[3] = { (r1-th)*cos(theta1), (r1-th)*sin(theta1), h1 };
 		//float p2[3] = { (r1-th)*cos(theta2),  (r1-th)*sin(theta2), h1 };
 		//float p3[3] = { (r2-th)*cos(theta1),  (r2-th)*sin(theta1), h2};
+#if SHELL
 
 		float c1[3] = {0,0,hB};
 		float c2[3] = {0,0,hT};
 		float p1[3] = { (rB1)*cos(theta1), (rB1)*sin(theta1), hB };
-		float p2[3] = { (rB2)*cos(theta2),  (rB2)*sin(theta2), hB };
+		float p2[3] = { (rB1)*cos(theta2),  (rB1)*sin(theta2), hB };
 		float p3[3] = { (rT1)*cos(theta1),  (rT1)*sin(theta1), hT};
-		float p4[3] = { (rT2)*cos(theta2),  (rT2)*sin(theta2), hT};
+		float p4[3] = { (rT1)*cos(theta2),  (rT1)*sin(theta2), hT};
 
 		//outer
 		print_triangle_raw(&p1[0],&p2[0],&p3[0]);
 		print_triangle_raw(&p3[0],&p2[0],&p4[0]);
 
-#if SHELL
 
 		float p1i[3] = { (rB1-2.0)*cos(theta1), (rB1-2.0)*sin(theta1), hB };
 		float p2i[3] = { (rB2-2.0)*cos(theta2),  (rB2-2.0)*sin(theta2), hB };
@@ -368,9 +375,46 @@ void print_cone_triangles(float thickness) {
 		print_triangle_raw(&p2i[0],&p1[0],&p1i[0]);
 
 #else
+		float c1[3] = {0,0,hB};
+		float c2[3] = {0,0,hT};
+		float cF[3] = {0,0,hF};
+		
+		float p1[3] = { (rB1)*cos(theta1), (rB1)*sin(theta1), hB };
+		float p2[3] = { (rB1)*cos(theta2),  (rB1)*sin(theta2), hB };
+
+		float p3[3] = { (rT1)*cos(theta1),  (rT1)*sin(theta1), hT};
+		float p4[3] = { (rT1)*cos(theta2),  (rT1)*sin(theta2), hT};
+
+        float rF1 = (cone.max_z/h)*d_rim/2.0 + (1.0-cone.max_z/h)*d_foot/2.0 ;
+        float rF2  = ((cone.max_z+cone.funnel_height)/h)*d_rim/2.0 + (1.0-(cone.max_z+cone.funnel_height)/h)*d_foot/2.0 ;
+
+		float p5[3] = { (rF1)*cos(theta1),  (rF1)*sin(theta1), hT};
+		float p6[3] = { (rF1)*cos(theta2),  (rF1)*sin(theta2), hT};
+
+		float p7[3] = { (rF2)*cos(theta1),  (rF2)*sin(theta1), hF};
+		float p8[3] = { (rF2)*cos(theta2),  (rF2)*sin(theta2), hF};
+
+		//outer
+		print_triangle_raw(&p1[0],&p2[0],&p3[0]);
+		print_triangle_raw(&p3[0],&p2[0],&p4[0]);
+
 		//radial 
-		print_triangle_raw(&c1[0],&p2[0],&p1[0]);
-		print_triangle_raw(&c2[0],&p3[0],&p4[0]);
+		print_triangle_raw(&c1[0],&p2[0],&p1[0]); // foot
+
+		print_triangle_raw(&cF[0],&p7[0],&p8[0]); // top of funnel 
+
+		if ( cone.funnel_height > 0.0 ) {
+
+			print_triangle_raw(&p4[0],&p6[0],&p5[0]);
+			print_triangle_raw(&p4[0],&p5[0],&p3[0]);
+
+			print_triangle_raw(&p6[0],&p8[0],&p7[0]);
+			print_triangle_raw(&p6[0],&p7[0],&p5[0]);
+
+		}
+ 
+
+
 #endif
 
 	}
@@ -597,8 +641,9 @@ int main(int argc, char *argv[])
 		cone.w = atof(argv[6]);
 		cone.max_z =0.0;
 		cone.min_z = 0.0;
+		cone.funnel_height = argc >= 9 ? atof(argv[8]) : 0.0 ;
 	}
-
+	//printf("funnel_height %f\n", cone.funnel_height);
 	//printf("#thickness %f\n",thickness);
 	printf("solid x\n");
 	//bounds[0] = bounds[2] = bg->pts[0];
