@@ -58,4 +58,18 @@ solution "libtess2"
 			-- links { "glfw3" }
 			-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
 
+
+	-- more dynamic example
+	project "wemboss"
+		kind "ConsoleApp"
+		language "C"
+		links { "tess2" }
+		files { "WEmboss/main.c", "WEmboss/triangles.c" }
+		includedirs { "Include", "Contrib", "WEmboss" }
+		targetdir("Build")
+
+		configuration { "macosx" }
+			-- links { "glfw3" }
+			-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+
 			
