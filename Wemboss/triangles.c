@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <assert.h>
 #include "triangles.h"
 
 
@@ -29,7 +30,7 @@ MeshTriangles* parse_triangles(char* filename, float width) {
 
         if (strncmp(line,"vt ",3)==0) { 
             //printf("%s", line); 
-            npoints++;
+            ntpoints++;
         }
 
         if (strncmp(line,"f ",2)==0) { 
@@ -43,23 +44,27 @@ MeshTriangles* parse_triangles(char* filename, float width) {
     mt->ntriangles = ntriangles;
 
     printf("npoints: %d\n",npoints);
+    printf("ntpoints: %d\n",ntpoints);
     printf("ntriangles: %d\n",ntriangles);
+
     fclose(file);
 
-    mt->points = malloc( sizeof(float)*npoints*2 );
-    mt->tpoints = malloc( sizeof(float)*ntpoints*2 );
-    mt->triangles = malloc( sizeof(int)*ntriangles*3 );
-    mt->ttriangles = malloc( sizeof(int)*ntriangles*3 );
-    mt->paths = malloc( sizeof(float)*ntriangles*6 );
+    mt->points = malloc( sizeof(float)*npoints*2 );  assert(mt->points != 0);
+    mt->tpoints = malloc( sizeof(float)*ntpoints*2 );assert(mt->tpoints != 0);
+    mt->triangles = malloc( sizeof(int)*ntriangles*3 );assert(mt->triangles != 0);
+    mt->ttriangles = malloc( sizeof(int)*ntriangles*3 );assert(mt->ttriangles != 0);
+    mt->paths = malloc( sizeof(float)*ntriangles*6 );assert(mt->paths != 0);
 
-    file = fopen(filename, "r"); 
-
+    file = fopen(filename, "r");   assert(file);
+    printf("x\n"); fflush(stdout);
     int i=0;
     int j=0;
     int k=0;
     int l=0;
     int m=0;
     while (fgets(line, sizeof(line), file)) {
+                  //  printf("%d %d %d %d %s", i, l, j , m, line);  fflush(stdout);
+
         /* note that fgets don't strip the terminating \n, checking its
            presence would allow to handle lines longer that sizeof(line) */
         if (strncmp(line,"v ",2)==0) { 
@@ -79,7 +84,8 @@ MeshTriangles* parse_triangles(char* filename, float width) {
             float y;
             //printf("%s", line); 
             sscanf(line,"vt %f %f",&x,&y);
-            //printf("%f %f %s\n",x,y,line);
+           // printf("l= %d ntpoints= %d %f %f %s\n",l,ntpoints,x,y,line);fflush(stdout);
+            assert(l<2*ntpoints);
             mt->tpoints[l++]=x;
             mt->tpoints[l++]=y;
         }
@@ -107,12 +113,11 @@ MeshTriangles* parse_triangles(char* filename, float width) {
             mt->paths[k++] = mt->tpoints[2*(z-1)+1];
 
 //            mt->points[i++]=y;
-//            printf("%s", line); 
  //           ntriangles++;
         }
     }
     printf("%d %d\n",i,j);
-
+    fflush(stdout);
     fclose(file);
 
 /*
@@ -199,9 +204,9 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
 
 
         if ((u>=0.0) && (v>=0.0) && (w>=0.0)) { 
-            uv[0] = u*x[0] + v*y[0] + w*z[0];
-            uv[1] = u*x[1] + v*y[1] + w*z[1];
-            printf("hit! %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],p[0],p[1],i,u,v,w);
+            uv[0] =      u*x[0] + v*y[0] + w*z[0];
+            uv[1] =1.0*( u*x[1] + v*y[1] + w*z[1]);
+           // printf("hit! %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],p[0],p[1],i,u,v,w);
             return;
         }
 
@@ -229,10 +234,10 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
         float* y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
         float* z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
 
-        uv[0] = u*x[0] + v*y[0] + w*z[0];
-        uv[1] = u*x[1] + v*y[1] + w*z[1];
+        uv[0] =      u*x[0] + v*y[0] + w*z[0];
+        uv[1] =1.0*( u*x[1] + v*y[1] + w*z[1]);
 
-    printf("best mm: %f %f ; %d %f %f %f ( %f , %f ) %f %f ; %f %f ; %f %f \n",uv[0], uv[1], i,u,v,w, p[0],p[1], a[0], a[1], b[0], b[1], c[0], c[1]);
+   // printf("best mm: %f %f ; %d %f %f %f ( %f , %f ) %f %f ; %f %f ; %f %f \n",uv[0], uv[1], i,u,v,w, p[0],p[1], a[0], a[1], b[0], b[1], c[0], c[1]);
 
 
     return;

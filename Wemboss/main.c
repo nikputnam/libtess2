@@ -7,11 +7,12 @@
 #include "nanosvg.h"
 #include "tesselator.h"
 #include "triangles.h"
+#include "surface.h"
 
 //#define TEST_GRID 0
 //#define CONE_ONLY 1
 //#define SHELL 0
-#define FLAT 1
+#define FLAT 0
 
 struct ConeParams {
 	float w;
@@ -117,16 +118,14 @@ int cdt = 0;
 //a×b=(a2b3−a3b2)i−(a1b3−a3b1)j+(a1b2−a2b1)k.
 
 void idTransform(float* xprime, float *x) {
-	xprime[0] = x[0]/ cone.w  ;
-	xprime[2] = x[1]/ cone.w  ;
-	xprime[1] = x[2]/ cone.w  ;
+	xprime[0] = x[0]  ;
+	xprime[1] = x[1]  ;
+	xprime[2] = x[2]  ;
 }
 
-void transform(float* xprime, float *x) {
-	xprime[0] = ( x[0] / cone.w ) * cone.foot;
-	xprime[2] = ( x[1] / cone.w ) * cone.foot;
-	xprime[1] = ( x[2] / cone.w ) * cone.foot;
-}
+
+
+
 
 //}
 
@@ -147,6 +146,86 @@ void cross_product(float* a, float* b, float* n) {
 	n[2] = a[0]*b[1] - a[1]*b[0];
 }
 
+void subtract(float* r, float* a, float* b) {
+	r[0] = a[0] - b[0] ;
+	r[1] = a[1] - b[1] ;
+	r[2] = a[2] - b[2] ;
+}
+
+void add(float* r, float* a, float* b) {
+	r[0] = a[0] + b[0] ;
+	r[1] = a[1] + b[1] ;
+	r[2] = a[2] + b[2] ;
+}
+
+void tangent(float* t, float* rs, float* e, void(*trnsfrm)(float*, float*)) {
+
+   	float rs1[3];
+	float rs2[3];
+
+   	float x1[3];
+	float x2[3];
+	float t0[3];
+ 
+    add(     &rs1[0],rs,e);
+    subtract(&rs2[0],rs,e);
+
+    trnsfrm(&x1[0],&rs1[0]);
+    trnsfrm(&x2[0],&rs2[0]);
+
+    subtract(&t0[0],&x2[0],&x1[0]);
+   // printf("tgt %f %f %f\n",t0[0],t0[1],t0[2]);    fflush(stdout);
+
+    normalize(t0,t);
+    //printf("tgt %f %f %f\n",t[0],t[1],t[2]);    fflush(stdout);
+
+}
+
+void surface_norm(float* n, float* rs, void(*trnsfrm)(float*, float*)) {
+
+	float t1[3];
+	float t2[3];
+
+    float e1[3] = {0.001,0.0,0.0};
+    float e2[3] = {0.0,0.001,0.0};
+
+    tangent(&t1[0],rs,&e1[0],trnsfrm);
+    tangent(&t2[0],rs,&e2[0],trnsfrm);
+
+    //printf("t1 %f %f %f\n",t1[0],t1[1],t1[2]);    fflush(stdout);
+   // printf("t2 %f %f %f\n",t2[0],t2[1],t2[2]);    fflush(stdout);
+
+
+    cross_product(t2,t1,n);
+
+}
+// take a function transfm (r,s)->(xp,yp,zp), and use it to map (r,s,z)->transf(r,s) + z*normal_at(r,s)
+void transform2surf(float* xprime, float *x, void(*trnsfrm)(float*, float*)) {
+
+    float rs[3];
+    float p0[3];
+    float n[3];
+    rs[0] = x[0];
+    rs[1] = x[1];
+    rs[2] = 0.0;
+    trnsfrm(&p0[0],&rs[0]);
+
+    surface_norm(&n[0], &rs[0], trnsfrm );
+   // printf("surface norm %f %f %f\n",n[0],n[1],n[2]);    fflush(stdout);
+    n[0]*=x[2];
+    n[1]*=x[2];
+    n[2]*=x[2];
+
+    add(xprime, &p0[0], &n[0]);
+
+}
+
+void transform(float* xprime, float *x) {
+    transform2surf( xprime, x, X );
+	//xprime[0] = ( x[0] / cone.w ) * cone.foot;
+	//xprime[2] = ( x[1] / cone.w ) * cone.foot;
+	//xprime[1] = ( x[2] / cone.w ) * cone.foot;
+}
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
 	float a[3];
@@ -210,15 +289,15 @@ void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 #endif
 
 	float n[3];
-	triangle_normal(v1,v3,v2,&n[0]);
+	triangle_normal(v1,v2,v3,&n[0]);
 
 	if (n[0]==0.0 && n[1]==0.0 && n[2]==0.0) {return;}
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
 	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
-	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
 	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
 
@@ -418,6 +497,13 @@ int main(int argc, char *argv[])
 	unsigned char* mem;   // [1024*1024*20];
 	int nvflags = 0;
 
+    if (argc==2) {
+        write_surface_obj(argv[1]);     
+        //FILE* stlfile = fopen(argv[3], "wt"); 
+
+        exit(0);
+    }
+
     if (argc<5) {
         printf("usage: wemboss <input.svg> <input.obj> <out.stl> <thickness> <chamfer>\n");
         return(0);
@@ -550,8 +636,12 @@ int main(int argc, char *argv[])
 	fflush(stdout);
 
     for (int i=0; i<n_points; i++) {
+       // printf("interpolate %d %d\n",i,n_points  );
         mesh_interpolation(mt, & path_points[2*i], & path_points[2*i] );
     }
+
+    printf("did mesh interpolation\n");
+	fflush(stdout);
 
 	mem = malloc( np*4096 );
 	//printf("mem=%x\n",mem);
@@ -644,21 +734,22 @@ int main(int argc, char *argv[])
 						vflags[i] = vinds[i] == TESS_UNDEF ? 1 : 0;
 				}
 
+                printf("nelems %d\n",nelems);  fflush(stdout);
 				for (i = 0; i < nelems; ++i)
 				{
 					int b = elems[i*2];
 					int n = elems[i*2+1];
 
                     
-						printf("tc:\n");
-						printf("tc:\n");
+						//printf("tc:\n");
+						//printf("tc:\n");
 				//	printf("add contour %d/%d %d %d\n",i,nelems-1,b,n);
 
 
-					for (j = 0; j < n; ++j)
-					{
-						printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
-					}
+					//for (j = 0; j < n; ++j)
+					//{
+					//	printf("tc: %f %f\n",verts[b*2+j*2], verts[b*2+j*2+1]);
+				//	}
 
 					
 		
@@ -782,7 +873,7 @@ int main(int argc, char *argv[])
 #ifndef CONE_ONLY
 
 #if 1
-						if (chamfer>0.001) {
+						if (fabs(chamfer)>0.001) {
 						//	printf("chamfer %f\n",chamfer) ;
 							print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer,stlfile);
 						} 
@@ -814,7 +905,7 @@ int main(int argc, char *argv[])
 #endif
 #ifndef CONE_ONLY
 
-						if (chamfer>0.001) {
+						if (fabs(chamfer)>0.001) {
 							print_patch( x1,x2,x3, 1.1*thickness, chamfer, stlfile);
 						}
 #endif
@@ -888,6 +979,8 @@ int main(int argc, char *argv[])
 					// top
 #ifndef CONE_ONLY
 
+//The triangles filling in the mesa tops and bottoms
+
 					for (i = 0; i < nelems; ++i)
 					{
 
@@ -906,6 +999,7 @@ int main(int argc, char *argv[])
 						print_triangle(v1,v3,v2, stlfile);
 
 					}
+                    
 #endif
 
 				}

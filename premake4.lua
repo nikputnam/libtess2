@@ -64,7 +64,7 @@ solution "libtess2"
 		kind "ConsoleApp"
 		language "C"
 		links { "tess2" }
-		files { "WEmboss/main.c", "WEmboss/triangles.c" }
+		files { "WEmboss/main.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
 		includedirs { "Include", "Contrib", "WEmboss" }
 		targetdir("Build")
 
