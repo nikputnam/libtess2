@@ -405,11 +405,11 @@ void print_cone_triangles(float thickness) {
 
 		if ( cone.funnel_height > 0.0 ) {
 
-			print_triangle_raw(&p4[0],&p6[0],&p5[0]);
-			print_triangle_raw(&p4[0],&p5[0],&p3[0]);
+			print_triangle_raw(&p4[0],&p6[0],&p5[0]); //  funnel overhang triangles
+			print_triangle_raw(&p4[0],&p5[0],&p3[0]); // 
 
-			print_triangle_raw(&p6[0],&p8[0],&p7[0]);
-			print_triangle_raw(&p6[0],&p7[0],&p5[0]);
+			print_triangle_raw(&p6[0],&p8[0],&p7[0]); // funnel side triangles
+			print_triangle_raw(&p6[0],&p7[0],&p5[0]); // 
 
 		}
  
@@ -611,6 +611,9 @@ int main(int argc, char *argv[])
 	float fb[8]  ;
 
 	float cx,cy;
+	float expansion_fact = argc >= 10 ? 1.0/(1.0-atof(argv[9])) : 1.0 ;
+	//printf("expansion_fact  %f\n",expansion_fact); fflush(stdout);
+
 	//float t = 0.0f, pt = 0.0f;
 	TESSalloc ma;
 	TESStesselator* tess = 0;
@@ -626,7 +629,7 @@ int main(int argc, char *argv[])
 	bg = nsvgParseFromFile(argv[1], "px", 98.0f);
 
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
-	float thickness = atof(argv[2]);
+	float thickness = atof(argv[2])*expansion_fact;
 	cone.thickness = thickness;
 	chamfer = (M_PI*atof(argv[7])/180.0);
 
@@ -635,13 +638,13 @@ int main(int argc, char *argv[])
 #endif
 
 	if (argc>3) {
-		cone.foot = atof(argv[3]);
-		cone.mouth = atof(argv[4]);
-		cone.height = atof(argv[5]);
+		cone.foot = atof(argv[3])*expansion_fact;
+		cone.mouth = atof(argv[4])*expansion_fact;
+		cone.height = atof(argv[5])*expansion_fact;
 		cone.w = atof(argv[6]);
 		cone.max_z =0.0;
 		cone.min_z = 0.0;
-		cone.funnel_height = argc >= 9 ? atof(argv[8]) : 0.0 ;
+		cone.funnel_height = argc >= 9 ? atof(argv[8])*expansion_fact : 0.0 ;
 	}
 	//printf("funnel_height %f\n", cone.funnel_height);
 	//printf("#thickness %f\n",thickness);
@@ -673,6 +676,7 @@ int main(int argc, char *argv[])
 	int pi = 0;
 	int ppi = 0;
 
+	// read in the curves from the SVG and store as paths
 	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
 		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
 			//printf("x:\nx:\n");
@@ -859,6 +863,8 @@ int main(int argc, char *argv[])
 				}
 
 				
+				// add rectangular strips in image coordinates.  
+				// These form the object mesh...  
 				float dx = width / 200.0;
 				for (float x=bounds[0]-1.0;x<bounds[2];x+=dx) {
 					fb[0] = x;
@@ -948,11 +954,12 @@ int main(int argc, char *argv[])
 
 #ifndef CONE_ONLY
 
+#if 1
 						if (chamfer>0.001) {
 						//	printf("chamfer %f\n",chamfer) ;
 							print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer);
-						} else 
-
+						} 
+#endif					
 						print_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, 0.0);
 #endif
 					}
