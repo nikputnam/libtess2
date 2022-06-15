@@ -452,6 +452,8 @@ int main(int argc, char *argv[])
 
 	int n_points = 0;
 	int n_paths = 0;
+    int ppi = 0;
+
 #define SAMPLES_PER_BEZ 5
 
 	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
@@ -459,6 +461,9 @@ int main(int argc, char *argv[])
 			n_paths += 1;	
 			for (int i = 0; i < path->npts-1; i+=3) {
 				n_points += SAMPLES_PER_BEZ;
+                for (float t=0.0; t<1.0; t+=1.0/((float) (SAMPLES_PER_BEZ+1) ) ) {
+                    ppi+=2;
+                }
 			}
 		}
 	}
@@ -467,8 +472,14 @@ int main(int argc, char *argv[])
 	int *path_offsets = malloc( n_paths * sizeof(int) );
 	float *path_points = malloc( n_points * 2 * sizeof(float) );
 
+    for (int i=0; i<n_points; i++) {
+        path_points[2*i]  =0; 
+        path_points[2*i+1]=0; 
+    }
+
+
 	int pi = 0;
-	int ppi = 0;
+	 ppi = 0;
 
 	// read in the curves from the SVG and compute bounding box.
 	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
@@ -486,7 +497,10 @@ int main(int argc, char *argv[])
 				p3 = &path->pts[((i+3)%path->npts)*2];
 
 				float xx[2] = {0,0};
-				for (float t=0.0; t<1.0; t+=1.0/((float) (SAMPLES_PER_BEZ+1) ) ) {
+                float dt = 1.0 / ( (float) SAMPLES_PER_BEZ );
+                float t=-dt;
+				for ( int ti=0; ti<SAMPLES_PER_BEZ ; ti++ ) {
+                    t+=dt;
 					path_lengths[pi]+=1;
 					cubicBez(t,p0,p1,p2,p3,&xx[0]);
 
@@ -508,8 +522,8 @@ int main(int argc, char *argv[])
 					//printf( "x: %f %f\n", p[0],p[1] );
 
 					//printf( "x: %f %f\n", xx[0],xx[1] );
-					//path_points[ppi  ] = xx[0];
-					//path_points[ppi+1] = xx[1];
+					path_points[ppi  ] = xx[0];
+					path_points[ppi+1] = xx[1];
 					ppi+=2;
 
 				}
@@ -520,7 +534,7 @@ int main(int argc, char *argv[])
 		}
 	
 	}
-
+    if(ppi>n_points*2) {printf("%d >= %d\n",ppi,n_points*2); exit(1);}
     //return(0);
 
 	cx = (bounds[0]+bounds[2])/2;
@@ -535,53 +549,9 @@ int main(int argc, char *argv[])
     MeshTriangles* mt = parse_triangles(argv[2],(float) width);
 	fflush(stdout);
 
-   {
-	//pi = 0;
-	ppi = 0;
-
-	// read in the curves from the SVG and compute bounding box.
-	for (NSVGshape *shape = bg->shapes; shape != NULL; shape = shape->next) {
-		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
-			//printf("x:\nx:\n");
-			//path_offsets[pi]=ppi;
-			//path_lengths[pi]=0;
-			for (int i = 0; i < path->npts-1; i+=3) {
-
-				//float* p = &path->pts[i*2];
-
-				p0 = &path->pts[i*2];
-				p1 = &path->pts[((i+1)%path->npts)*2];
-				p2 = &path->pts[((i+2)%path->npts)*2];
-				p3 = &path->pts[((i+3)%path->npts)*2];
-
-				float xx[2] = {0,0};
-				for (float t=0.0; t<1.0; t+=1.0/((float) (SAMPLES_PER_BEZ+1) ) ) {
-					//path_lengths[pi]+=1;
-					cubicBez(t,p0,p1,p2,p3,&xx[0]);
-
-					//const float x = xx[0];
-					//const float y = xx[1];
-
-
-					//np+=1;
-					
-					//path_points[ppi  ] = xx[0];
-					//path_points[ppi+1] = xx[1];
-
-                    mesh_interpolation(mt, & xx[0], & path_points[ppi  ]);
-
-					ppi+=2;
-
-				}
-
-				//drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
-			}
-			//pi+=1;
-		}
-	
-	} }
-
-
+    for (int i=0; i<n_points; i++) {
+        mesh_interpolation(mt, & path_points[2*i], & path_points[2*i] );
+    }
 
 	mem = malloc( np*4096 );
 	//printf("mem=%x\n",mem);

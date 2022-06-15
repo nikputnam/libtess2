@@ -87,10 +87,7 @@ MeshTriangles* parse_triangles(char* filename, float width) {
         if (strncmp(line,"f ",2)==0) { 
             int a,b,c,x,y,z;
             
-            
             //sscanf(line,"f %d/%d %d/%d %d/%d",&a,&x,&b,&y,&c,&z);
-
-
             //flip triangles
             sscanf(line,"f %d/%d %d/%d %d/%d",&c,&z,&b,&y,&a,&x);
             //printf("%d %d %d %s\n",a,b,c,line);
@@ -102,12 +99,12 @@ MeshTriangles* parse_triangles(char* filename, float width) {
             mt->ttriangles[m++]=y-1;
             mt->ttriangles[m++]=z-1;
 
-            mt->paths[k++] = mt->points[2*(a-1)];
-            mt->paths[k++] = mt->points[2*(a-1)+1];
-            mt->paths[k++] = mt->points[2*(b-1)];
-            mt->paths[k++] = mt->points[2*(b-1)+1];
-            mt->paths[k++] = mt->points[2*(c-1)];
-            mt->paths[k++] = mt->points[2*(c-1)+1];
+            mt->paths[k++] = mt->tpoints[2*(x-1)];
+            mt->paths[k++] = mt->tpoints[2*(x-1)+1];
+            mt->paths[k++] = mt->tpoints[2*(y-1)];
+            mt->paths[k++] = mt->tpoints[2*(y-1)+1];
+            mt->paths[k++] = mt->tpoints[2*(z-1)];
+            mt->paths[k++] = mt->tpoints[2*(z-1)+1];
 
 //            mt->points[i++]=y;
 //            printf("%s", line); 
@@ -183,21 +180,27 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
         diff( b,a,&v1[0] );        
         diff( p,a,&v2[0] );      
 
-        float dot00 = dot2(v0, v0);
-        float dot01 = dot2(v0, v1);
-        float dot02 = dot2(v0, v2);
-        float dot11 = dot2(v1, v1);
-        float dot12 = dot2(v1, v2);
+        //float dot00 = dot2(v0, v0);
+       // float dot01 = dot2(v0, v1);
+       // float dot02 = dot2(v0, v2);
+       // float dot11 = dot2(v1, v1);
+       // float dot12 = dot2(v1, v2);
 
-        float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01) ;
+       // float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01) ;
+        float invDenom = 1.0 / ( v0[0]*v1[1] - v0[1]*v1[0] ) ;
 
-        float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-        float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-        float w = 1.0 - u - v;
+      //  float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+      //  float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+      //  float w = 1.0 - u - v;
+
+        float w = (v2[0] * v1[1] - v2[1]*v1[0]) * invDenom;
+        float v = (v0[0] * v2[1] - v0[1]*v2[0]) * invDenom;
+        float u = 1.0 - v - w;
+
 
         if ((u>=0.0) && (v>=0.0) && (w>=0.0)) { 
-            uv[0] = u*x[0] + w*y[0] + v*z[0];
-            uv[1] = u*x[1] + w*y[1] + v*z[1];
+            uv[0] = u*x[0] + v*y[0] + w*z[0];
+            uv[1] = u*x[1] + v*y[1] + w*z[1];
             printf("hit! %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],p[0],p[1],i,u,v,w);
             return;
         }
@@ -218,7 +221,6 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
         float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
         float* c = & mt->points[ mt->triangles[i*3+2]*2 ];
 
-
     float u = best_u;
     float v = best_v;
     float w = best_w;
@@ -227,8 +229,8 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
         float* y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
         float* z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
 
-    uv[0] = w*x[0] + u*y[0] + v*z[0];
-    uv[1] = w*x[1] + u*y[1] + v*z[1];
+        uv[0] = u*x[0] + v*y[0] + w*z[0];
+        uv[1] = u*x[1] + v*y[1] + w*z[1];
 
     printf("best mm: %f %f ; %d %f %f %f ( %f , %f ) %f %f ; %f %f ; %f %f \n",uv[0], uv[1], i,u,v,w, p[0],p[1], a[0], a[1], b[0], b[1], c[0], c[1]);
 
