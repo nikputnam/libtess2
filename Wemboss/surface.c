@@ -5,7 +5,35 @@
 #include <math.h>
 #include "surface.h"
 
-void X(float* xyz, float* vtheta) {
+
+
+void wrinkley(float* xyz, float* vtheta) {
+
+    double v = (double) vtheta[0];
+    double theta = (double) vtheta[1];
+
+    double phi = M_PI*(0.6+0.6*(v-0.5));
+
+    double h0 = 1.7;
+
+    double h = -h0*cos(phi);
+    double r= (1.1-0.1*pow(sin(theta*7.0 - M_PI*v*2.5),6.0) )*sin(phi);
+
+//    double r1 = 1.5;
+//    double r2 = 9.0;
+    //double ee=1.3;
+    double ee=1.05;
+
+    //double eeh=2.0;
+
+//    double r = r1 + v*(r2-r1);
+
+    xyz[0] = ee*r*sin( theta  );  // X
+    xyz[1] = h;  // Y
+    xyz[2] = r*cos( theta  );  // Z
+}
+
+void flattened_vase(float* xyz, float* vtheta) {
     double v = (double) vtheta[0];
     double theta = (double) vtheta[1];
     double h0 = 10.0;
@@ -23,6 +51,54 @@ void X(float* xyz, float* vtheta) {
 
 }
 
+void bulbous_vase(float* xyz, float* vtheta) {
+    double v = (double) vtheta[0];
+    double theta = (double) vtheta[1];
+    double h0 = 10.0;
+    double r0=6.0;
+    double r1 = 1.5;
+    double r2 = 9.0;
+    double ee=1.2;
+
+    double phi = M_PI*(0.6+0.6*(0.5-v));
+    double rxy =r0*sin(phi);// r1 + v*(r2-r1);
+
+    xyz[0] = (float) rxy*sin( theta  );  // X
+    xyz[1] = (float) r0*cos(phi);  // Y
+    xyz[2] = (float) ee*rxy*cos( theta );  // Z
+
+   // printf("X: %f %f -> %f %f %f\n",vtheta[0], vtheta[1], xyz[0], xyz[1], xyz[2]);
+
+}
+
+void bulbous_vase2(float* xyz, float* vtheta) {
+    double v = (double) vtheta[0];
+    double theta = (double) vtheta[1];
+    double h0 = 10.0;
+    double r0=6.0;
+    double r1 = 1.5;
+    double r2 = 9.0;
+    double ee=1.2;
+
+    double phi = M_PI*(0.6+0.6*(0.5-v));
+    double rxy =r0*sin(phi);// r1 + v*(r2-r1);
+
+    xyz[0] = (float) sqrt(rxy)*sin( theta  );  // X
+    xyz[1] = (float) r0*cos(phi);  // Y
+    xyz[2] = (float) ee*sqrt(rxy)*cos( theta );  // Z
+
+   // printf("X: %f %f -> %f %f %f\n",vtheta[0], vtheta[1], xyz[0], xyz[1], xyz[2]);
+
+}
+
+
+
+void X(float* xyz, float* vtheta) {
+    //flattened_vase(xyz, vtheta);
+    bulbous_vase(xyz, vtheta);
+    //wrinkley(xyz, vtheta);
+    
+}
 
 
 
@@ -78,4 +154,5 @@ int write_surface_obj(char* fn) {
         }  
     }
     fclose(objf);
+    return(0);
 }
