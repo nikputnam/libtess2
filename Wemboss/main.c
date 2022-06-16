@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <assert.h>
 #include <GLFW/glfw3.h>
 #include "nanosvg.h"
 #include "tesselator.h"
@@ -37,11 +38,19 @@ R = [ uy*ux*(1-cos(theta)) + uz*sin(theta)  cos(theta)+uy^2*(1-cos(theta))      
 */
 
 
+float norm(float* n) {	return sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );}
+
 void rotationMatrix(float theta, float* u, float* m) {
 	float ux = u[0];
 	float uy = u[1];
 	float uz = u[2];
 
+    float nn = norm(u);
+    /*
+    if (fabs(nn-1.0)>0.0000001) {
+        printf("nn %f\n",nn); fflush(stdout);
+        assert(fabs(nn-1.0)<=0.00001);
+    }*/
 	M(0,0) = cos(theta)+ux*ux*(1-cos(theta));
 	M(0,1) = ux*uy*(1-cos(theta)) - uz*sin(theta);
 	M(0,2) = ux*uz*(1-cos(theta)) + uy*sin(theta) ;
@@ -57,9 +66,9 @@ void rotationMatrix(float theta, float* u, float* m) {
 }
 
 void matrixMultiply(float* m, float* x, float* r) {
-	r[0] = M(0,0)*x[0] + M(0,1)*x[0] + M(0,2)*x[2];
-	r[1] = M(1,0)*x[0] + M(1,1)*x[0] + M(1,2)*x[2];
-	r[2] = M(2,0)*x[0] + M(2,1)*x[0] + M(2,2)*x[2];
+	r[0] = M(0,0)*x[0] + M(0,1)*x[1] + M(0,2)*x[2];
+	r[1] = M(1,0)*x[0] + M(1,1)*x[1] + M(1,2)*x[2];
+	r[2] = M(2,0)*x[0] + M(2,1)*x[1] + M(2,2)*x[2];
 }
 
 void* stdAlloc(void* userData, unsigned int size)
@@ -129,10 +138,6 @@ void idTransform(float* xprime, float *x) {
 
 //}
 
-float norm(float* n) {
-	return sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
-}
-
 void normalize(float* n, float* r) {
 	float nn = norm( n );
 	r[0] = n[0] / nn ;
@@ -195,9 +200,10 @@ void surface_norm(float* n, float* rs, void(*trnsfrm)(float*, float*)) {
     //printf("t1 %f %f %f\n",t1[0],t1[1],t1[2]);    fflush(stdout);
    // printf("t2 %f %f %f\n",t2[0],t2[1],t2[2]);    fflush(stdout);
 
+	float nn[3];
 
-    cross_product(t2,t1,n);
-
+    cross_product(t2,t1,&nn[0]);
+    normalize(nn,n);
 }
 // take a function transfm (r,s)->(xp,yp,zp), and use it to map (r,s,z)->transf(r,s) + z*normal_at(r,s)
 void transform2surf(float* xprime, float *x, void(*trnsfrm)(float*, float*)) {
@@ -257,11 +263,12 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) {
 
 
-//	float n[3];
-	//triangle_normal(v1,v2,v3,&n[0]);
+	float n[3];
+	triangle_normal(v1,v2,v3,&n[0]);
 
 	//printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
-	fprintf(fp,"  facet normal %f %f %f\n", 0.0,0.0,0.0);
+	//fprintf(fp,"  facet normal %f %f %f\n", 0.0,0.0,0.0);
+    fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
 	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
 	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
@@ -339,10 +346,37 @@ float dot(float* x, float* y) {
 	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
 }
 
-void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer, FILE* fp) {
-	float t1[3] = { x2[0] - x1[0], x2[1] - x1[1] , 0 };
-	float t2[3] = { x3[0] - x2[0], x3[1] - x2[1] , 0 };
-	float normal[3] = { 0,0, -1 };
+void print_patch( float* x10,float* x20,float* x30, float thickness, float chamfer, FILE* fp) {
+
+	float x1[3];// = { x10[0], x10[1], 0 };
+	float x2[3];// = { x20[0], x20[1], 0 };
+	float x3[3];// = { x20[0], x20[1], 0 };
+    float xa[3];
+    float xb[3];
+
+    transform(&x1[0],x10);
+    transform(&x2[0],x20);
+    transform(&x3[0],x30);
+
+	float t1[3] = { x2[0] - x1[0], x2[1] - x1[1] , x2[2] - x1[2] };
+	float t2[3] = { x3[0] - x2[0], x3[1] - x2[1] , x3[2] - x2[2] };
+
+   // xa[0]=0.5*( x10[0]+x20[0] );
+   // xa[1]=0.5*( x10[1]+x20[1] );
+   // xa[2]=0.5*( x10[2]+x20[2] );
+
+   // xb[0]=0.5*( x20[0]+x30[0] );
+   // xb[1]=0.5*( x20[1]+x30[1] );
+  //  xb[2]=0.5*( x20[2]+x30[2] );
+    //printf("xa: %f %f %f \n",xa[0],xa[1],xa[2]); //,x2[0],x2[1],x2[2]);
+
+	float normal2[3]; // = { 0,0, -1 };
+//	float normalB[3]; // = { 0,0, -1 };
+
+    surface_norm(&normal2[0], &x20[0], X );
+//    surface_norm(&normalB[0], &xb[0], X );
+
+//	float normal[3] = { 0,0, -1 };
 
 	float tn1[3];
 	float tn2[3];
@@ -350,12 +384,12 @@ void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer,
 	float m1[9];
 	float m2[9];
 
-	float t1xt2[3];
+	//float t1xt2[3];
 
 	normalize(&t1[0],&tn1[0]);
 	normalize(&t2[0],&tn2[0]);
 
-	cross_product(&tn1[0],&tn2[0],&t1xt2[0]);
+	//cross_product(&tn1[0],&tn2[0],&t1xt2[0]);
 
 	//if (dot(&t1xt2[0], normal ) <0.0) {return ; }
 
@@ -365,55 +399,84 @@ void print_patch( float* x1,float* x2,float* x3, float thickness, float chamfer,
 	float chamfer_v1[3]; //  = { 0,0, 1 };
 	float chamfer_v2[3]; //  = { 0,0, 1 };
 
-	matrixMultiply(&m1[0],&normal[0],&chamfer_v1[0]);
-	matrixMultiply(&m2[0],&normal[0],&chamfer_v2[0]);
+	matrixMultiply(&m1[0],&normal2[0],&chamfer_v1[0]);
+	matrixMultiply(&m2[0],&normal2[0],&chamfer_v2[0]);
 	float r = thickness / cos(chamfer);
     //printf("r: %f \t %f \t %f\n",r,thickness,chamfer);
-	float v1[3] = { x2[0], x2[1], 0 } ;
+	float v1[3] = { x2[0], x2[1], x2[2] } ;
 	//float v2[3] = { this_x, this_y, 0 } ;
-	float v2[3] = { x2[0] + r*chamfer_v1[0], x2[1] + r*chamfer_v1[1], r*chamfer_v1[2]  } ;
-	float v3[3] = { x2[0] + r*chamfer_v2[0], x2[1] + r*chamfer_v2[1], r*chamfer_v2[2]  } ;
-	float v4[3] = { x2[0], x2[1], -thickness } ;
+	float v2[3] = { x2[0] - r*chamfer_v1[0], x2[1] - r*chamfer_v1[1], x2[2] - r*chamfer_v1[2]  } ;
+	float v3[3] = { x2[0] - r*chamfer_v2[0], x2[1] - r*chamfer_v2[1], x2[2] - r*chamfer_v2[2]  } ;
+	float v4[3] = { x2[0] - thickness*normal2[0], x2[1] - thickness*normal2[1], x2[2] - thickness*normal2[2] } ;
 
-	print_triangle(v1,v3,v2, fp); 
-	//print_triangle(v1,v2,v4); 
-	print_triangle(v2,v3,v4, fp); 
-	//print_triangle(v1,v4,v3); 
+	print_triangle_raw(v1,v3,v2, fp); 
+	print_triangle_raw(v2,v3,v4, fp); 
 
 }
 
 void print_wedge(float* x10, float* x20,float thickness, float chamfer, FILE* fp ) {
-	float x1[3] = { x10[0], x10[1], 0 };
-	float x2[3] = { x20[0], x20[1], 0 };
-	float t[3] = { x2[0]-x1[0], x2[1]-x1[1], 0 };  // tangent
-	float normal[3] = { 0,0, -1 };
-	float chamfer_v[3]; //  = { 0,0, 1 };
+
+    //printf("x10: %f %f %f ; x20: %f %f %f \n",x10[0],x10[1],x10[2],x20[0],x20[1],x20[2]);
+    
+	float x1[3];// = { x10[0], x10[1], 0 };
+	float x2[3];// = { x20[0], x20[1], 0 };
+    float xa[3];
+
+    transform(&x1[0],x10);
+    transform(&x2[0],x20);
+   // printf("x1: %f %f %f ; x2: %f %f %f \n",x1[0],x1[1],x1[2],x2[0],x2[1],x2[2]);
+
+	float t[3] = { x2[0]-x1[0], x2[1]-x1[1], x2[2]-x1[2] };  // tangent
+    /*
+    xa[0]=0.5*( x10[0]+x20[0] );
+    xa[1]=0.5*( x10[1]+x20[1] );
+    xa[2]=0.5*( x10[2]+x20[2] );
+    printf("xa: %f %f %f \n",xa[0],xa[1],xa[2]); //,x2[0],x2[1],x2[2]);
+    */
+	//float normal[3]; // = { 0,0, -1 };
+	float normal1[3]; // = { 0,0, -1 };
+	float normal2[3]; // = { 0,0, -1 };
+
+    surface_norm(&normal1[0], &x10[0], X );
+    surface_norm(&normal2[0], &x20[0], X );
+
+//    surface_norm(&normal[0], &xa[0], X );
+ //   printf("norm: %f %f %f \n",normal[0],normal[1],normal[2]); //,x2[0],x2[1],x2[2]);
+
+	float chamfer_v1[3] ;// = { normal[0], normal[1], normal[2] };
+	float chamfer_v2[3] ;// = { normal[0], normal[1], normal[2] };
 	float tn[3] ;
 	float m[9];
 	normalize(&t[0],&tn[0]);  
 	rotationMatrix(chamfer, tn, &m[0]);
-	matrixMultiply(&m[0],&normal[0],&chamfer_v[0]);
+	matrixMultiply(&m[0],&normal1[0],&chamfer_v1[0]);
+	matrixMultiply(&m[0],&normal2[0],&chamfer_v2[0]);
+   // printf("chamfer_v: %f %f %f \n",chamfer_v[0],chamfer_v[1],chamfer_v[2]); //,x2[0],x2[1],x2[2]);
 
 	float r = thickness / cos(chamfer);
+    //r = thickness;
 	//float v1[3] = { last_x, last_y, 0 } ;
 	//float v2[3] = { this_x, this_y, 0 } ;
 
-	float x3[3] = { x1[0] + r*chamfer_v[0], x1[1] + r*chamfer_v[1], r*chamfer_v[2]  } ;
-	float x4[3] = { x2[0] + r*chamfer_v[0], x2[1] + r*chamfer_v[1], r*chamfer_v[2]  } ;
+	float x3[3] = { x1[0] - r*chamfer_v1[0], x1[1] - r*chamfer_v1[1], x1[2] - r*chamfer_v1[2]  } ;
+	float x4[3] = { x2[0] - r*chamfer_v2[0], x2[1] - r*chamfer_v2[1], x2[2] - r*chamfer_v2[2]  } ;
 
-	float x5[3] = { x1[0] , x1[1] , -thickness };
-	float x6[3] = { x2[0] , x2[1] , -thickness };
+	float x5[3] = { x1[0] - thickness*normal1[0] , x1[1] - thickness*normal1[1] ,x1[2]  - thickness*normal1[2] };
+	float x6[3] = { x2[0] - thickness*normal2[0] , x2[1] - thickness*normal2[1] ,x2[2]  - thickness*normal2[2] };
 
 //	v1 = {}; 
 
-	print_triangle(x1,x2,x3, fp); 
-	print_triangle(x3,x2,x4, fp); 
+	print_triangle_raw(x1,x2,x3, fp); 
+	print_triangle_raw(x3,x2,x4, fp); 
+
 	//print_triangle(x1,x3,x5); 
 	//print_triangle(x4,x2,x6); 
-	print_triangle(x6,x5,x3, fp); 
-	print_triangle(x4,x6,x3, fp); 
-	print_triangle(x2,x1,x5, fp); 
-	print_triangle(x2,x5,x6, fp); 
+    
+	print_triangle_raw(x6,x5,x3, fp); 
+	print_triangle_raw(x4,x6,x3, fp); 
+	print_triangle_raw(x2,x1,x5, fp); 
+	print_triangle_raw(x2,x5,x6, fp); 
+    
 
 }
 
@@ -500,7 +563,6 @@ int main(int argc, char *argv[])
     if (argc==2) {
         write_surface_obj(argv[1]);     
         //FILE* stlfile = fopen(argv[3], "wt"); 
-
         exit(0);
     }
 
@@ -857,8 +919,8 @@ int main(int argc, char *argv[])
 					//float this_x; float this_y;
 					for (j = 0; j < n; ++j)
 					{
-						float x1[2] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] } ;
-						float x2[2] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1] } ;
+						float x1[3] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1],0 } ;
+						float x2[3] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1],0 } ;
 					
 						//this_x = verts[b*2+j*2];
 						//this_y = verts[b*2+j*2+1];
@@ -893,9 +955,9 @@ int main(int argc, char *argv[])
 
 					for (j = 0; j < n; ++j)
 					{
-						float x1[2] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] } ;
-						float x2[2] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1] } ;
-						float x3[2] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] } ;
+						float x1[3] = { verts[b*2+(j%n)*2], verts[b*2+(j%n)*2+1] ,0} ;
+						float x2[3] = { verts[b*2+((j+1)%n)*2], verts[b*2+((j+1)%n)*2+1] ,0} ;
+						float x3[3] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] ,0} ;
 						//float x4[2] = { verts[b*2+((j+3)%n)*2], verts[b*2+((j+3)%n)*2+1] } ;
 
 #ifdef TEST_GRID 
@@ -981,6 +1043,7 @@ int main(int argc, char *argv[])
 
 //The triangles filling in the mesa tops and bottoms
 
+
 					for (i = 0; i < nelems; ++i)
 					{
 
@@ -999,8 +1062,27 @@ int main(int argc, char *argv[])
 						print_triangle(v1,v3,v2, stlfile);
 
 					}
-                    
+                   
 #endif
+
+
+//                for (int i=0; i<mt->ntriangles; i++) {
+//                    tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
+                    for (int i=0; i<mt->ntriangles; i++) {
+                        //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
+                        float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.0*thickness };
+						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.0*thickness };
+						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.0*thickness };
+                        print_triangle(v1,v3,v2, stlfile);
+                    }
+
+                    for (int i=0; i<mt->ntriangles; i++) {
+                        //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
+                        float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.1*thickness };
+						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.1*thickness };
+						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.1*thickness };
+                        print_triangle(v1,v2,v3, stlfile);
+                    }
 
 				}
 
