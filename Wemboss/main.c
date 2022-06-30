@@ -9,6 +9,7 @@
 #include "tesselator.h"
 #include "triangles.h"
 #include "surface.h"
+#include "vectorops.h"
 
 //#define TEST_GRID 0
 //#define CONE_ONLY 1
@@ -38,7 +39,6 @@ R = [ uy*ux*(1-cos(theta)) + uz*sin(theta)  cos(theta)+uy^2*(1-cos(theta))      
 */
 
 
-float norm(float* n) {	return sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );}
 
 void rotationMatrix(float theta, float* u, float* m) {
 	float ux = u[0];
@@ -138,30 +138,6 @@ void idTransform(float* xprime, float *x) {
 
 //}
 
-void normalize(float* n, float* r) {
-	float nn = norm( n );
-	r[0] = n[0] / nn ;
-	r[1] = n[1] / nn ;
-	r[2] = n[2] / nn ;
-}
-
-void cross_product(float* a, float* b, float* n) {
-	n[0] = a[1]*b[2] - a[2]*b[1];
-	n[1] = a[2]*b[0] - a[0]*b[2];
-	n[2] = a[0]*b[1] - a[1]*b[0];
-}
-
-void subtract(float* r, float* a, float* b) {
-	r[0] = a[0] - b[0] ;
-	r[1] = a[1] - b[1] ;
-	r[2] = a[2] - b[2] ;
-}
-
-void add(float* r, float* a, float* b) {
-	r[0] = a[0] + b[0] ;
-	r[1] = a[1] + b[1] ;
-	r[2] = a[2] + b[2] ;
-}
 
 void tangent(float* t, float* rs, float* e, void(*trnsfrm)(float*, float*)) {
 
