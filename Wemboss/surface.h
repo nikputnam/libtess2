@@ -34,3 +34,4 @@ int write_surface_obj2(char* fn, pottoy_spec_t* spec) ;
 static void scan_array(const char *str, int len, void *user_data);
 int read_spec(char* filename, pottoy_spec_t* spec );
 
+void faceted_X(float* xyz, float* uv, pottoy_spec_t* spec ) ;

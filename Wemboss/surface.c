@@ -142,12 +142,13 @@ void faceted_X(float* xyz, float* uv, pottoy_spec_t* spec ) {
     float uvC[2];
 
     float u = uv[0];
-    float v0 = uv[1];
+    float v0 = uv[1]; // +1.0; // the +1 here tries to fix phase problems with negative values of v
     float pufff =   (1.0-exp(-u*20.0))*(1-exp(-1.0*(1.0-u)*20.0)); //min(1,10*u,10*(1-u)) ;
 	float v = v0 + u * (spec->twist) ;
 
     double ip;
 	float phase = modf( ( (v0) * ((float) spec->n_facets)),&ip);
+    if (phase<0) {phase += 1.0; } 
     float deltav = phase / ((float) spec->n_facets);
 	float va = v-deltav;
     float vb = va+(1.0/((float) spec->n_facets));

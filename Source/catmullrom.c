@@ -21,7 +21,7 @@ void catmullrom2(float t, float* points, int npoints, float* x) {
     float tp = (t-(1.0/(npoints-1))*((float) i))*(npoints-1) ;
     float alpha = 0.5;    // 0.5 for "centripital"
 
-    printf("catmull rom debug t,i,tp npoints: %f %d %f %d\n", t, i, tp, npoints);
+  //  printf("catmull rom debug t,i,tp npoints: %f %d %f %d\n", t, i, tp, npoints);
 
     if (i==0) {
         subtract2(&p0[0], &points[0], &points[2]);  //  v0 - v1
@@ -40,10 +40,10 @@ void catmullrom2(float t, float* points, int npoints, float* x) {
         set2(&p3[0], &points[(i+2)*2] );
     }
 
-    printf("debug p0 %f %f %f\n", p0[0], p0[1], t);
-    printf("debug p1 %f %f %f\n", p1[0], p1[1], t);
-    printf("debug p2 %f %f %f\n", p2[0], p2[1], t);
-    printf("debug p3 %f %f %f\n", p3[0], p3[1], t);
+  //  printf("debug p0 %f %f %f\n", p0[0], p0[1], t);
+  //  printf("debug p1 %f %f %f\n", p1[0], p1[1], t);
+  //  printf("debug p2 %f %f %f\n", p2[0], p2[1], t);
+  //  printf("debug p3 %f %f %f\n", p3[0], p3[1], t);
 
     catmullrom2_segment(tp,p0,p1,p2,p3,alpha,x);
 

@@ -1,6 +1,7 @@
 typedef struct MeshTriangles
 {
 	int ntriangles;				
+	int npaths;				
 	int npoints;				
 	int ntpoints;				
 	float* points;			

@@ -12,9 +12,10 @@
 #include "vectorops.h"
 
 //#define TEST_GRID 0
-//#define CONE_ONLY 1
+//#define CONE_ONLY 0
 //#define SHELL 0
 #define FLAT 0
+#define REVERSE_MESH_CONTOURS 0
 
 struct ConeParams {
 	float w;
@@ -38,7 +39,10 @@ R = [ uy*ux*(1-cos(theta)) + uz*sin(theta)  cos(theta)+uy^2*(1-cos(theta))      
     [ uz*ux*(1-cos(theta)) - uy*sin(theta)  uz*uy*(1-cos(theta)) + ux*sin(theta)    cos(theta)+uz^2*(1-cos(theta))        ]
 */
 
-
+pottoy_spec_t spec;  
+void transf_X(float* xyz, float* uv ) {
+	faceted_X(xyz,uv, &spec ) ;
+};
 
 void rotationMatrix(float theta, float* u, float* m) {
 	float ux = u[0];
@@ -132,10 +136,6 @@ void idTransform(float* xprime, float *x) {
 	xprime[2] = x[2]  ;
 }
 
-
-
-
-
 //}
 
 
@@ -203,7 +203,8 @@ void transform2surf(float* xprime, float *x, void(*trnsfrm)(float*, float*)) {
 }
 
 void transform(float* xprime, float *x) {
-    transform2surf( xprime, x, X );
+	//transf_X
+    transform2surf( xprime, x, transf_X );
 	//xprime[0] = ( x[0] / cone.w ) * cone.foot;
 	//xprime[2] = ( x[1] / cone.w ) * cone.foot;
 	//xprime[1] = ( x[2] / cone.w ) * cone.foot;
@@ -523,7 +524,7 @@ int main(int argc, char *argv[])
 	//float fb[8]  ;
 
 	float cx,cy;
-	float expansion_fact = argc >= 10 ? 1.0/(1.0-atof(argv[9])) : 1.0 ;
+	float expansion_fact = argc >= 11 ? 1.0/(1.0-atof(argv[10])) : 1.0 ;
 	//printf("expansion_fact  %f\n",expansion_fact); fflush(stdout);
 
 	//float t = 0.0f, pt = 0.0f;
@@ -542,14 +543,15 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    if (argc<5) {
-        printf("usage: wemboss <input.svg> <input.obj> <out.stl> <thickness> <chamfer>\n");
+    if (argc<6) {
+        printf("usage: wemboss <input.svg> <input.obj> <out.stl> <surface.json> <thickness> <chamfer>\n");
         return(0);
     }
 
     FILE* stlfile = fopen(argv[3], "wt"); 
 	fprintf(stlfile,"solid x\n");
 
+    read_spec(argv[4], &spec );
 
 	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
 	//bg = svgParseFromFile(argv[1]);
@@ -560,9 +562,9 @@ int main(int argc, char *argv[])
     //bg = nsvgParseFromFile(argv[2], "px", 98.0f);
     printf("parse file %s\n",argv[2]);
 
-	float thickness = atof(argv[4])*expansion_fact;
+	float thickness = atof(argv[5])*expansion_fact;
 	cone.thickness = thickness;
-	chamfer = (M_PI*atof(argv[5])/180.0);
+	chamfer = (M_PI*atof(argv[6])/180.0);
 
 
 #ifdef TEST_GRID
@@ -796,9 +798,11 @@ int main(int argc, char *argv[])
 				}
 
 				
-                
+#if REVERSE_MESH_CONTOURS
+                tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+#endif
                 // add the mesh trianlges as paths
-                for (int i=0; i<mt->ntriangles; i++) {
+                for (int i=0; i<mt->npaths; i++) {
                     tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
                     /* printf("tt:\ntt:\n");
                     for (j = 0; j < 3; ++j)
@@ -806,7 +810,9 @@ int main(int argc, char *argv[])
 						printf("tt: %f %f\n",mt->paths[i*6+j*2], mt->paths[i*6+j*2+1]);
 					}*/
                 }
-
+#if REVERSE_MESH_CONTOURS
+				tessSetOption(tess,TESS_REVERSE_CONTOURS,0);
+#endif
                 
                 // add rectangular strips in image coordinates.  
 				// These form the object mesh...  
@@ -969,9 +975,11 @@ int main(int argc, char *argv[])
 					tessAddContour(tess, 2, fb, sizeof(float)*2, 4);
 
 				}*/
-
+#if REVERSE_MESH_CONTOURS
+				tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+#endif
                 // add the mesh trianlges as paths
-                for (int i=0; i<mt->ntriangles; i++) {
+                for (int i=0; i<mt->npaths; i++) {
                     tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
                     /* printf("tt:\ntt:\n");
                     for (j = 0; j < 3; ++j)
@@ -979,8 +987,9 @@ int main(int argc, char *argv[])
 						printf("tt: %f %f\n",mt->paths[i*6+j*2], mt->paths[i*6+j*2+1]);
 					}*/
                 }
-
-                
+#if REVERSE_MESH_CONTOURS
+                tessSetOption(tess,TESS_REVERSE_CONTOURS,0);
+#endif
 
 				//printf("done adding contours\n"); //TESS_WINDING_POSITIVE,
 				if (!tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0)) {
@@ -1042,23 +1051,27 @@ int main(int argc, char *argv[])
 #endif
 
 
-//                for (int i=0; i<mt->ntriangles; i++) {
-//                    tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
-                    for (int i=0; i<mt->ntriangles; i++) {
+/*
+					// print out the shell of the surface itself -- outside
+                    for (int i=0; i<mt->npaths; i++) {
                         //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
                         float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.0*thickness };
 						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.0*thickness };
 						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.0*thickness };
                         print_triangle(v1,v3,v2, stlfile);
                     }
+					*/
 
-                    for (int i=0; i<mt->ntriangles; i++) {
+/*
+					// inside
+                    for (int i=0; i<mt->npaths; i++) {
                         //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
                         float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.1*thickness };
 						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.1*thickness };
 						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.1*thickness };
                         print_triangle(v1,v2,v3, stlfile);
                     }
+*/
 
 				}
 
