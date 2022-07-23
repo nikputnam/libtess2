@@ -1,14 +1,24 @@
 
 #include <math.h>
 #include "vectorops.h" 
+#include <stdio.h>
+#include <stdlib.h>
 
 float norm(float* n) {	return sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );}
 
+int vequal2(float* a, float* b) { return ( a[0]==b[0] && a[1]==b[1] ); }
+int vequal3(float* a, float* b) { return ( a[0]==b[0] && a[1]==b[1] && a[2]==b[2] ); }
+
 void normalize(float* n, float* r) {
 	float nn = norm( n );
+	if (nn==0.0) {printf("nn=0.0\n");}
 	r[0] = n[0] / nn ;
 	r[1] = n[1] / nn ;
 	r[2] = n[2] / nn ;
+
+
+	//if (isnan(r[0])) {printf("is nan\n");}
+
 }
 
 void cross_product(float* a, float* b, float* n) {
@@ -55,7 +65,7 @@ float dist2(float* a, float* b) {
 }
 
 
-float weighted_sum2(float* r, float w1, float w2, float* v1, float* v2) {	
+void weighted_sum2(float* r, float w1, float w2, float* v1, float* v2) {	
     r[0] = w1*v1[0] + w2*v2[0];
     r[1] = w1*v1[1] + w2*v2[1];
 }

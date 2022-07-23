@@ -1,9 +1,13 @@
+#include "tesselator.h"
+
+
 
 void X(float* xyz, float* vtheta);
 //void Xs(float* xyz, float* uv, pottoy_spec_t* spec ) ;
 
 
 int write_surface_obj(char* fn);
+//int write_surface_obj_spec(spec,argv[2]);   
 
 
 typedef struct pottoy_struct {
@@ -29,9 +33,16 @@ typedef struct pottoy_struct {
 } pottoy_spec_t ;
 
 void Xs(float* xyz, float* vtheta, pottoy_spec_t* spec );
-int write_surface_obj2(char* fn, pottoy_spec_t* spec) ;
+//int write_surface_obj2(char* fn, pottoy_spec_t* spec) ;
+int write_surface_obj2(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) ;
 
 static void scan_array(const char *str, int len, void *user_data);
 int read_spec(char* filename, pottoy_spec_t* spec );
 
 void faceted_X(float* xyz, float* uv, pottoy_spec_t* spec ) ;
+
+void surface_obj_bbox(float* bbox, pottoy_spec_t* spec) ;
+void scale_spec(float scale, pottoy_spec_t* spec) ;
+
+
+void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int n_sectors, int n_levels);

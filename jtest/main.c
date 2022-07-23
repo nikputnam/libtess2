@@ -23,10 +23,18 @@ int main(int argc, char** argv) {
     float x[2];
     for (float t=0; t<1.0; t+=0.01) {
         catmullrom2(t,&spec.points[0], spec.npoints, &x[0]);
-        printf("%f %f %f\n", t,x[0],x[1]);
+        //printf("%f %f %f\n", t,x[0],x[1]);
     }
 
-    write_surface_obj2(argv[2], &spec);     
+  int n_sectors = 90;
+  if (spec.facet) {
+    int spf = n_sectors / spec.n_facets ;
+    if (spf < 10 ) {spf = 10;}
+    n_sectors = spec.n_facets * (spf + 1);
+    printf("n_sectors = %d\n", n_sectors );
+  }
+
+    write_surface_obj2(argv[2], &spec, n_sectors, 50);     
 
   //  free(buffer);
 
