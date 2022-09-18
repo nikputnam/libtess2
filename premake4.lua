@@ -74,6 +74,20 @@ solution "libtess2"
 
 
 	-- more dynamic example
+	project "geowrap"
+	kind "ConsoleApp"
+	language "C"
+	links { "tess2" }
+	files { "geowrap/main.c", "Contrib/frozen.c", "geowrap/triangles.c", "geowrap/surface.c" }
+	includedirs { "Include", "Contrib", "geowrap", "Source", "/opt/homebrew/include" }
+	targetdir("Build")
+
+	configuration { "macosx" }
+		-- links { "glfw3" }
+		-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+
+
+	-- more dynamic example
 	project "jtest"
 		kind "ConsoleApp"
 		language "C"
