@@ -65,7 +65,7 @@ solution "libtess2"
 		language "C"
 		links { "tess2" }
 		files { "WEmboss/main.c", "Contrib/frozen.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
-		includedirs { "Include", "Contrib", "WEmboss", "Source" }
+		includedirs { "Include", "Contrib", "WEmboss", "Source", "/opt/homebrew/Cellar/glfw/3.3.7/include" }
 		targetdir("Build")
 
 		configuration { "macosx" }
@@ -93,7 +93,7 @@ solution "libtess2"
 		language "C"
 		links { "tess2" }
 		files { "jtest/main.c", "Contrib/frozen.c", "WEmboss/surface.c" }
-		includedirs { "Include", "Contrib", "WEmboss", "Source"}
+		includedirs { "Include", "Contrib", "WEmboss", "Source", "/opt/homebrew/Cellar/glfw/3.3.7/include"}
 		targetdir("Build")
 
 		configuration { "macosx" }

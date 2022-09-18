@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <GLFW/glfw3.h>
 #include "nanosvg.h"
+#include "tess.h"
 #include "tesselator.h"
 #include "triangles.h"
 #include "surface.h"
@@ -16,6 +17,7 @@
 //#define SHELL 0
 #define FLAT 0
 #define REVERSE_MESH_CONTOURS 0
+//#define REVERSE_PATTERN_CONTOURS 1
 
 struct ConeParams {
 	float w;
@@ -66,6 +68,18 @@ void rotationMatrix(float theta, float* u, float* m) {
 	M(2,0) = uz*ux*(1-cos(theta)) - uy*sin(theta);
 	M(2,1) = uz*uy*(1-cos(theta)) + ux*sin(theta) ;
 	M(2,2) = cos(theta)+uz*uz*(1-cos(theta)) ;
+
+
+
+	if (isnan(M(0,0))) {printf("M(0,0) is nan; theta=%f ux=%f uy=%f uz=%f\n",theta,ux,uy,uz);}
+	if (isnan(M(0,1))) {printf("M(0,1) is nan\n");}
+	if (isnan(M(0,2))) {printf("M(0,2) is nan\n");}
+	if (isnan(M(1,0))) {printf("M(1,0) is nan\n");}
+	if (isnan(M(1,1))) {printf("M(1,1) is nan\n");}
+	if (isnan(M(1,2))) {printf("M(1,2) is nan\n");}
+	if (isnan(M(2,0))) {printf("M(2,0) is nan\n");}
+	if (isnan(M(2,1))) {printf("M(2,1) is nan\n");}
+	if (isnan(M(2,2))) {printf("M(2,2) is nan\n");}
 
 }
 
@@ -178,7 +192,7 @@ void surface_norm(float* n, float* rs, void(*trnsfrm)(float*, float*)) {
 
 	float nn[3];
 
-    cross_product(t2,t1,&nn[0]);
+    cross_product(t1,t2,&nn[0]);
     normalize(nn,n);
 }
 // take a function transfm (r,s)->(xp,yp,zp), and use it to map (r,s,z)->transf(r,s) + z*normal_at(r,s)
@@ -331,9 +345,19 @@ void print_patch( float* x10,float* x20,float* x30, float thickness, float chamf
     float xa[3];
     float xb[3];
 
+	if (vequal2(x10,x20)) {printf("x10==x20 nan\n");}
+	if (vequal2(x20,x30)) {printf("x20==x30 nan\n");}
+
     transform(&x1[0],x10);
     transform(&x2[0],x20);
     transform(&x3[0],x30);
+
+	if (vequal3(x1,x2)) { return;}
+	if (vequal3(x2,x3)) { return;}
+
+	if (isnan(x1[0])) {printf("x1[0] is nan\n");}
+	if (isnan(x2[0])) {printf("x2[0] is nan\n");}
+	if (isnan(x3[0])) {printf("x3[0] is nan\n");}
 
 	float t1[3] = { x2[0] - x1[0], x2[1] - x1[1] , x2[2] - x1[2] };
 	float t2[3] = { x3[0] - x2[0], x3[1] - x2[1] , x3[2] - x2[2] };
@@ -350,8 +374,11 @@ void print_patch( float* x10,float* x20,float* x30, float thickness, float chamf
 	float normal2[3]; // = { 0,0, -1 };
 //	float normalB[3]; // = { 0,0, -1 };
 
-    surface_norm(&normal2[0], &x20[0], X );
+    surface_norm(&normal2[0], &x20[0], transf_X );
 //    surface_norm(&normalB[0], &xb[0], X );
+	if (isnan(normal2[0])) {printf("normal2[0] is nan\n");}
+	//if (isnan(x2[0])) {printf("x2[0] is nan\n");}
+	//if (isnan(x3[0])) {printf("x3[0] is nan\n");}
 
 //	float normal[3] = { 0,0, -1 };
 
@@ -365,6 +392,10 @@ void print_patch( float* x10,float* x20,float* x30, float thickness, float chamf
 
 	normalize(&t1[0],&tn1[0]);
 	normalize(&t2[0],&tn2[0]);
+	
+	if (isnan(tn1[0])) {printf("tn1[0] is nan\n");}
+	if (isnan(tn2[0])) {printf("tn2[0] is nan\n");}
+
 
 	//cross_product(&tn1[0],&tn2[0],&t1xt2[0]);
 
@@ -378,6 +409,10 @@ void print_patch( float* x10,float* x20,float* x30, float thickness, float chamf
 
 	matrixMultiply(&m1[0],&normal2[0],&chamfer_v1[0]);
 	matrixMultiply(&m2[0],&normal2[0],&chamfer_v2[0]);
+
+	if (isnan(chamfer_v1[0])) {printf("chamfer_v1[0] is nan\n");}
+	if (isnan(chamfer_v2[0])) {printf("chamfer_v2[0] is nan\n");}
+
 	float r = thickness / cos(chamfer);
     //printf("r: %f \t %f \t %f\n",r,thickness,chamfer);
 	float v1[3] = { x2[0], x2[1], x2[2] } ;
@@ -401,6 +436,10 @@ void print_wedge(float* x10, float* x20,float thickness, float chamfer, FILE* fp
 
     transform(&x1[0],x10);
     transform(&x2[0],x20);
+
+	if (vequal3(x1,x2)) { return;}
+	//if (vequal3(x2,x3)) {printf("x2==x3 nan\n"); return;}
+
    // printf("x1: %f %f %f ; x2: %f %f %f \n",x1[0],x1[1],x1[2],x2[0],x2[1],x2[2]);
 
 	float t[3] = { x2[0]-x1[0], x2[1]-x1[1], x2[2]-x1[2] };  // tangent
@@ -414,8 +453,8 @@ void print_wedge(float* x10, float* x20,float thickness, float chamfer, FILE* fp
 	float normal1[3]; // = { 0,0, -1 };
 	float normal2[3]; // = { 0,0, -1 };
 
-    surface_norm(&normal1[0], &x10[0], X );
-    surface_norm(&normal2[0], &x20[0], X );
+    surface_norm(&normal1[0], &x10[0], transf_X );
+    surface_norm(&normal2[0], &x20[0], transf_X );
 
 //    surface_norm(&normal[0], &xa[0], X );
  //   printf("norm: %f %f %f \n",normal[0],normal[1],normal[2]); //,x2[0],x2[1],x2[2]);
@@ -457,27 +496,16 @@ void print_wedge(float* x10, float* x20,float thickness, float chamfer, FILE* fp
 
 }
 
-void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness, float chamfer, FILE* fp) {
+void print_quad(float last_x, float last_y, float this_x, float this_y, float thickness, FILE* fp) {
 
-	float t[3] = { this_x - last_x, this_y - last_y , 0 };
-	float normal[3] = { 0,0, -1 };
-	float chamfer_v[3]; //  = { 0,0, 1 };
-	float tn[3] ;
-	float m[9];
-	normalize(&t[0],&tn[0]);
-	rotationMatrix(chamfer, tn, &m[0]);
-	matrixMultiply(&m[0],&normal[0],&chamfer_v[0]);
-
-	float r = thickness / cos(chamfer);
-
-	float v1[3] = { last_x, last_y, 0 } ;
-	float v2[3] = { this_x, this_y, 0 } ;
-	float v3[3] = { last_x + r*chamfer_v[0], last_y + r*chamfer_v[1], r*chamfer_v[2]  } ;
-	float v4[3] = { this_x + r*chamfer_v[0], this_y + r*chamfer_v[1], r*chamfer_v[2]  } ;
+	float v1[3] = { last_x, last_y, 0.0 } ;
+	float v2[3] = { this_x, this_y, 0.0 } ;
+	float v3[3] = { last_x , last_y , -thickness  } ;
+	float v4[3] = { this_x , this_y , -thickness  } ;
 
 
-	print_triangle(v1,v2,v3, fp); 
-	print_triangle(v3,v2,v4, fp); 
+	print_triangle(v1,v3,v2, fp); 
+	print_triangle(v3,v4,v2, fp); 
 
 }
 
@@ -524,8 +552,9 @@ int main(int argc, char *argv[])
 	//float fb[8]  ;
 
 	float cx,cy;
-	float expansion_fact = argc >= 11 ? 1.0/(1.0-atof(argv[10])) : 1.0 ;
-	//printf("expansion_fact  %f\n",expansion_fact); fflush(stdout);
+	float expansion_fact = 1.0;
+//	float expansion_fact = argc >= 11 ? 1.0/(1.0-atof(argv[10])) : 1.0 ;
+//	printf("expansion_fact  %f\n",expansion_fact); fflush(stdout);
 
 	//float t = 0.0f, pt = 0.0f;
 	TESSalloc ma;
@@ -542,6 +571,46 @@ int main(int argc, char *argv[])
         //FILE* stlfile = fopen(argv[3], "wt"); 
         exit(0);
     }
+		//printf("argc=%d\n",argc);
+
+	int n_sectors = 90;
+	int n_levels = 50;
+
+    if (argc==3) {
+		read_spec(argv[1], &spec );
+	} else {
+		read_spec(argv[4], &spec );
+	}
+
+	if (spec.facet) {
+		int spf = n_sectors / spec.n_facets ;
+		if (spf < 10 ) {spf = 10;}
+		n_sectors = spec.n_facets * (spf + 1);
+		printf("n_sectors = %d\n", n_sectors );
+	}
+		
+    if (argc==3) {
+		printf("read spec & write obj.\n");
+		read_spec(argv[1], &spec );
+
+		float bbox[6];
+		surface_obj_bbox(&bbox[0], &spec) ;
+		printf("bbox: x:  %f - %f\n", bbox[0], bbox[3]);
+		printf("bbox: y:  %f - %f\n", bbox[1], bbox[4]);
+		printf("bbox: z:  %f - %f\n", bbox[2], bbox[5]);
+
+
+		//int n_sectors = 90;
+
+
+  		write_surface_obj2(argv[2], &spec, n_sectors, n_levels);     
+
+
+
+    	//write_surface_obj2(argv[2], &spec);     
+
+        exit(0);
+    }
 
     if (argc<6) {
         printf("usage: wemboss <input.svg> <input.obj> <out.stl> <surface.json> <thickness> <chamfer>\n");
@@ -551,7 +620,6 @@ int main(int argc, char *argv[])
     FILE* stlfile = fopen(argv[3], "wt"); 
 	fprintf(stlfile,"solid x\n");
 
-    read_spec(argv[4], &spec );
 
 	//printf("hi %s %s\n",argv[0],argv[1]); fflush(stdout);
 	//bg = svgParseFromFile(argv[1]);
@@ -565,7 +633,15 @@ int main(int argc, char *argv[])
 	float thickness = atof(argv[5])*expansion_fact;
 	cone.thickness = thickness;
 	chamfer = (M_PI*atof(argv[6])/180.0);
-
+	float scale=1.0;
+	if (argc>=8) { 
+		scale = atof(argv[7]); 
+		scale_spec(scale,&spec);
+	}
+	float shell_thickness = 1.0;
+	if (argc>=9) { 
+		shell_thickness = atof(argv[8]); 
+	}
 
 #ifdef TEST_GRID
 	float chamfer0 = chamfer;
@@ -682,11 +758,11 @@ int main(int argc, char *argv[])
 
     printf("did mesh interpolation\n");
 	fflush(stdout);
-
+	np += n_sectors * n_levels * 9 * 3;
 	mem = malloc( np*4096 );
 	//printf("mem=%x\n",mem);
 	memset(mem,0, np*4096 );
-	//printf("allocate %d\n",np*1024); fflush(stdout);
+	printf("allocate %d K\n",np*4096/1024); fflush(stdout);
 
 	pool.size = 0;
 	pool.cap = np*4096; //sizeof(mem);
@@ -710,10 +786,16 @@ int main(int argc, char *argv[])
 //			printf("x:\nx:\n");
 //			for (int i = 0; i < path->npts; ++i) {
 	
-    
+#if REVERSE_PATTERN_CONTOURS
+                tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+#endif
+
     	for (int i =0; i<n_paths; i++) {
 			tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
 		}
+#if REVERSE_PATTERN_CONTOURS
+                tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+#endif
 
 
 
@@ -774,6 +856,7 @@ int main(int argc, char *argv[])
 						vflags[i] = vinds[i] == TESS_UNDEF ? 1 : 0;
 				}
 
+
                 printf("nelems %d\n",nelems);  fflush(stdout);
 				for (i = 0; i < nelems; ++i)
 				{
@@ -797,19 +880,29 @@ int main(int argc, char *argv[])
 					tessAddContour(tess, 2, &verts[b*2], sizeof(float)*2, n);
 				}
 
-				
+
 #if REVERSE_MESH_CONTOURS
                 tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
 #endif
+//                tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+
+				add_triangle_contours(tess, &spec, 3*n_sectors, 3*n_levels) ;
+				
+				/*
                 // add the mesh trianlges as paths
                 for (int i=0; i<mt->npaths; i++) {
-                    tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
-                    /* printf("tt:\ntt:\n");
-                    for (j = 0; j < 3; ++j)
-					{
-						printf("tt: %f %f\n",mt->paths[i*6+j*2], mt->paths[i*6+j*2+1]);
-					}*/
-                }
+                //    tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
+					printf("# %f,%f %f,%f %f,%f \n",
+						mt->paths[i*6],
+						mt->paths[i*6+1],
+						mt->paths[i*6+2],
+						mt->paths[i*6+3],
+						mt->paths[i*6+4],
+						mt->paths[i*6+5]
+					);
+
+                }*/
+				
 #if REVERSE_MESH_CONTOURS
 				tessSetOption(tess,TESS_REVERSE_CONTOURS,0);
 #endif
@@ -915,14 +1008,16 @@ int main(int argc, char *argv[])
 #endif
 
 #ifndef CONE_ONLY
-
+						if ( dist2(&x2[0],&x1[0])>0 ) {
 #if 1
+						
 						if (fabs(chamfer)>0.001) {
 						//	printf("chamfer %f\n",chamfer) ;
-							print_wedge(&x1[0],&x2[0],1.1*thickness,chamfer,stlfile);
+							print_wedge(&x2[0],&x1[0],1.1*thickness,chamfer,stlfile);
 						} 
 #endif					
-						print_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, 0.0, stlfile);
+						print_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, stlfile);
+						}
 #endif
 					}
 				}
@@ -942,6 +1037,18 @@ int main(int argc, char *argv[])
 						float x3[3] = { verts[b*2+((j+2)%n)*2], verts[b*2+((j+2)%n)*2+1] ,0} ;
 						//float x4[2] = { verts[b*2+((j+3)%n)*2], verts[b*2+((j+3)%n)*2+1] } ;
 
+#ifdef NAN
+				if (x1[0]==NAN) {printf("x1[0]=NAN\n");}
+				if (x1[1]==NAN) {printf("x1[0]=NAN\n");}
+				if (x1[2]==NAN) {printf("x1[0]=NAN\n");}
+				if (x2[0]==NAN) {printf("x1[0]=NAN\n");}
+				if (x2[1]==NAN) {printf("x1[0]=NAN\n");}
+				if (x2[2]==NAN) {printf("x1[0]=NAN\n");}
+				if (x3[0]==NAN) {printf("x1[0]=NAN\n");}
+				if (x3[1]==NAN) {printf("x1[0]=NAN\n");}
+				if (x3[2]==NAN) {printf("x1[0]=NAN\n");}
+#endif
+
 #ifdef TEST_GRID 
 					    float theta1 = 2.0*M_PI*( x2[0] / cone.w );
 						int sector1 = ((int) (theta1 / (2.0*M_PI/2.0)))%2; 
@@ -950,7 +1057,10 @@ int main(int argc, char *argv[])
 #ifndef CONE_ONLY
 
 						if (fabs(chamfer)>0.001) {
-							print_patch( x1,x2,x3, 1.1*thickness, chamfer, stlfile);
+							//if (dist22(&x2[0],&x1[0])==0.0) {fprintf(stlfile,"x2==x1\n");}
+							//if (dist22(&x2[0],&x3[0])==0.0) {fprintf(stlfile,"x2==x3\n");}
+							//fprintf(stlfile,"patch %d %d\n",i,j);
+							print_patch( x3,x2,x1, 1.1*thickness, chamfer, stlfile);
 						}
 #endif
 					}
@@ -979,23 +1089,25 @@ int main(int argc, char *argv[])
 				tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
 #endif
                 // add the mesh trianlges as paths
+
+				add_triangle_contours(tess, &spec, 3*n_sectors, 3* n_levels) ;
+/*
                 for (int i=0; i<mt->npaths; i++) {
                     tessAddContour(tess, 2, (void*) &(mt->paths[i*6]), sizeof(float)*2, 3);
-                    /* printf("tt:\ntt:\n");
-                    for (j = 0; j < 3; ++j)
-					{
-						printf("tt: %f %f\n",mt->paths[i*6+j*2], mt->paths[i*6+j*2+1]);
-					}*/
+                  
                 }
+				*/
 #if REVERSE_MESH_CONTOURS
                 tessSetOption(tess,TESS_REVERSE_CONTOURS,0);
 #endif
 
 				//printf("done adding contours\n"); //TESS_WINDING_POSITIVE,
-				if (!tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0)) {
+			if (!tessTesselate(tess, TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0)) {
 				//if (!tessTesselate(tess,TESS_WINDING_ABS_GEQ_TWO, TESS_POLYGONS, nvp, 2, 0))
 					tess = 0;
 					printf("tesselate returned zero 2nd time\n");
+					fflush(stdout);
+					//printf("tesselate returned zero 2nd time; out of memory: %d\n",tess->outOfMemory);
 				}
 			}
 
@@ -1027,54 +1139,46 @@ int main(int argc, char *argv[])
 #ifndef CONE_ONLY
 
 //The triangles filling in the mesa tops and bottoms
-
-
 					for (i = 0; i < nelems; ++i)
 					{
 
 						const int* p = &elems[i*nvp];
 
-						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],-1.1*thickness };
-						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],-1.1*thickness };
-						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],-1.1*thickness };
+						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],0.0*thickness };
+						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],0.0*thickness };
+						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],0.0*thickness };
 
 						print_triangle(v1,v2,v3, stlfile);
 
-						v1[2] = 0.0;
-						v2[2] = 0.0;
-						v3[2] = 0.0;
+						v1[2] = -1.1*thickness;
+						v2[2] = -1.1*thickness;
+						v3[2] = -1.1*thickness;
 
 						print_triangle(v1,v3,v2, stlfile);
 
 					}
-                   
 #endif
 
-
-/*
 					// print out the shell of the surface itself -- outside
                     for (int i=0; i<mt->npaths; i++) {
                         //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
                         float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.0*thickness };
 						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.0*thickness };
 						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.0*thickness };
-                        print_triangle(v1,v3,v2, stlfile);
+                        print_triangle(v1,v2,v3, stlfile);
                     }
-					*/
-
-/*
+					
+					
 					// inside
                     for (int i=0; i<mt->npaths; i++) {
                         //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
-                        float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.1*thickness };
-						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.1*thickness };
-						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.1*thickness };
-                        print_triangle(v1,v2,v3, stlfile);
+                        float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] ,-1.0*thickness - shell_thickness };
+						float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,-1.0*thickness - shell_thickness };
+						float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,-1.0*thickness - shell_thickness };
+                        print_triangle(v1,v3,v2, stlfile);
                     }
-*/
-
+					
 				}
-
 		}
 	
 #if 1

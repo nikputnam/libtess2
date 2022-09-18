@@ -247,7 +247,7 @@ float max(float a, float b, float c  ) {
     return c;
 }
 
-#define DEBUG_MI 1
+//#define DEBUG_MI 
 
 void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
 

@@ -169,19 +169,62 @@ void faceted_X(float* xyz, float* uv, pottoy_spec_t* spec ) {
 }
 
 
-// output an obj file augmented with some vertices having fixed UV coordiantes based on the parametric fn X()
-int write_surface_obj2(char* fn, pottoy_spec_t* spec) {
-
-    FILE* objf = fopen(fn, "wt");
+void surface_obj_bbox(float* bbox, pottoy_spec_t* spec) {
     float xyz[3];
     float uv[2];
 
     int n_sectors=90;
     int n_levels=50;
+    int j=0;
+    int i=0;
+    double v = (((double) j)/((double) (n_sectors-1)));
+    double u = ((double)i)/((double) n_levels);
+    uv[0] = (float) u;
+    uv[1] = (float) v;
+    faceted_X(&xyz[0],&uv[0], spec);
+
+    bbox[0] = xyz[0];
+    bbox[1] = xyz[1];
+    bbox[2] = xyz[2];
+
+    bbox[3] = xyz[0];
+    bbox[4] = xyz[1];
+    bbox[6] = xyz[2];
+
+    for(j=0;j<n_sectors;j++) {
+        double v = (((double) j)/((double) (n_sectors-1)));
+        //printf("v: %f\n",v);
+        for(i=0;i<=n_levels;i++) {
+            double u = ((double)i)/((double) n_levels);
+            //double theta = u* 2.0*M_PI ;
+            uv[0] = (float) u;
+            uv[1] = (float) v;
+            faceted_X(&xyz[0],&uv[0], spec);
+
+            if (xyz[0] < bbox[0]) {bbox[0] = xyz[0];}
+            if (xyz[1] < bbox[1]) {bbox[1] = xyz[1];}
+            if (xyz[2] < bbox[2]) {bbox[2] = xyz[2];}
+            if (xyz[0] > bbox[3]) {bbox[3] = xyz[0];}
+            if (xyz[1] > bbox[4]) {bbox[4] = xyz[1];}
+            if (xyz[2] > bbox[5]) {bbox[5] = xyz[2];}
+
+        }
+    }
+}
+
+// output an obj file augmented with some vertices having fixed UV coordiantes based on the parametric fn X()
+int write_surface_obj2(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) {
+
+    FILE* objf = fopen(fn, "wt");
+    float xyz[3];
+    float uv[2];
+
+//    int n_sectors=90;
+//    int n_levels=50;
 
     for(int j=0;j<n_sectors;j++) {
         double v = (((double) j)/((double) (n_sectors-1)));
-        printf("v: %f\n",v);
+        //printf("v: %f\n",v);
         for(int i=0;i<=n_levels;i++) {
             double u = ((double)i)/((double) n_levels);
             //double theta = u* 2.0*M_PI ;
@@ -309,6 +352,13 @@ static void scan_array(const char *str, int len, void *user_data) {
     }
 }
 
+void scale_spec(float scale, pottoy_spec_t* spec) {
+    for (int i = 0; i< spec->npoints*2; i++) {
+        spec->points[i] *= scale;
+    }
+
+}
+
 int read_spec(char* filename, pottoy_spec_t* spec ) {
 
 
@@ -363,8 +413,9 @@ int read_spec(char* filename, pottoy_spec_t* spec ) {
             &spec->puff, &spec->squash, &spec->twist
              );
 
-//    printf("n_facets: %d\n",a);
- //   printf("facet: %d\n",d);
+    printf("n_facets: %d\n",spec->n_facets);
+    printf("facet: %d\n",spec->facet);
+   printf("npoints: %d\n",spec->npoints);
 
     spec->points = (float*)calloc( spec->npoints, 2*sizeof(float) );
 
@@ -372,11 +423,44 @@ int read_spec(char* filename, pottoy_spec_t* spec ) {
       json_scanf(buffer, strlen(buffer), "{ points:%M  }",
              scan_array, spec->points );
 
-/*    for (int i = 0; i< n_points*2; i++) {
+    for (int i = 0; i< n_points*2; i++) {
         printf("xy %f\n",points[i]);
     }
-*/
+
     free(buffer);
     return(0);
 
 }
+
+void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sectors, int mn_levels) {
+
+    float x[6];
+    float uv[2];
+
+#define UU(i) (((double)(i))/((double) mn_levels))
+#define VV(j) (((double) (j))/((double) (mn_sectors-1)))
+
+    for(int j=-mn_sectors;j<2*mn_sectors-1;j++) {
+        for(int i=0;i<mn_levels;i++) {
+
+            x[0] = UU(i);   x[1] = VV(j);
+            x[2] = UU(i+1); x[3] = VV(j);
+            x[4] = UU(i);   x[5] = VV(j+1);
+
+            //printf("z %f,%f %f,%f %f,%f \n",x[0],x[1],x[2],x[3],x[4],x[5]);
+            tessAddContour(tess, 2, (void*) &(x[0]), sizeof(float)*2, 3);
+
+            x[0] = UU(i)  ; x[1] = VV(j+1);
+            x[2] = UU(i+1); x[3] = VV(j);
+            x[4] = UU(i+1); x[5] = VV(j+1);
+
+            //printf("z %f,%f %f,%f %f,%f \n",x[0],x[1],x[2],x[3],x[4],x[5]);
+            tessAddContour(tess, 2, (void*) &(x[0]), sizeof(float)*2, 3);
+
+//            fprintf(objf, "f %d %d %d\n",j*(n_levels+1)+i+1 , j*(n_levels+1)+i+2, (j+1)*(n_levels+1)+i+1);
+//            fprintf(objf, "f %d %d %d\n",i+1+(j+1)*(n_levels+1) , j*(n_levels+1)+i+2,i+2+(j+1)*(n_levels+1));
+        }  
+    }
+    fflush(stdout);
+}
+

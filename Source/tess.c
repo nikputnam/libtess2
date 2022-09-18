@@ -1032,6 +1032,7 @@ int tessTesselate( TESStesselator *tess, int windingRule, int elementType,
 
 	if (setjmp(tess->env) != 0) {
 		/* come back here if out of memory */
+		printf("out of memory\n");
 		return 0;
 	}
 
