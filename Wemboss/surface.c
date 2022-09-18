@@ -432,35 +432,35 @@ int read_spec(char* filename, pottoy_spec_t* spec ) {
 
 }
 
-
-#define UU(i) (((double)(i))/((double) n_levels))
-#define VV(j) (((double) (j))/((double) (n_sectors-1)))
-
-void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int n_sectors, int n_levels) {
+void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sectors, int mn_levels) {
 
     float x[6];
     float uv[2];
 
+#define UU(i) (((double)(i))/((double) mn_levels))
+#define VV(j) (((double) (j))/((double) (mn_sectors-1)))
 
-    for(int j=0;j<n_sectors-1;j++) {
-        for(int i=0;i<n_levels;i++) {
+    for(int j=-mn_sectors;j<2*mn_sectors-1;j++) {
+        for(int i=0;i<mn_levels;i++) {
 
-            x[0] = UU(i); x[1] = VV(j);
+            x[0] = UU(i);   x[1] = VV(j);
             x[2] = UU(i+1); x[3] = VV(j);
-            x[4] = UU(i); x[5] = VV(j+1);
+            x[4] = UU(i);   x[5] = VV(j+1);
 
+            //printf("z %f,%f %f,%f %f,%f \n",x[0],x[1],x[2],x[3],x[4],x[5]);
             tessAddContour(tess, 2, (void*) &(x[0]), sizeof(float)*2, 3);
 
-            x[0] = UU(i); x[1] = VV(j+1);
+            x[0] = UU(i)  ; x[1] = VV(j+1);
             x[2] = UU(i+1); x[3] = VV(j);
             x[4] = UU(i+1); x[5] = VV(j+1);
 
+            //printf("z %f,%f %f,%f %f,%f \n",x[0],x[1],x[2],x[3],x[4],x[5]);
             tessAddContour(tess, 2, (void*) &(x[0]), sizeof(float)*2, 3);
 
 //            fprintf(objf, "f %d %d %d\n",j*(n_levels+1)+i+1 , j*(n_levels+1)+i+2, (j+1)*(n_levels+1)+i+1);
 //            fprintf(objf, "f %d %d %d\n",i+1+(j+1)*(n_levels+1) , j*(n_levels+1)+i+2,i+2+(j+1)*(n_levels+1));
         }  
     }
-
+    fflush(stdout);
 }
 

@@ -45,4 +45,4 @@ void surface_obj_bbox(float* bbox, pottoy_spec_t* spec) ;
 void scale_spec(float scale, pottoy_spec_t* spec) ;
 
 
-void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int n_sectors, int n_levels);
+void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sectors, int mn_levels);
