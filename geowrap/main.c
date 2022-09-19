@@ -91,15 +91,34 @@ void print_triangle_bbox( float* z1, float* z2, float* z3 , FILE* fp, float* bbo
 	float v2[3];
 	float v3[3];
 
+//    printf("transforming %f %f %f\n", z1[0],z1[1],z1[2]);
+//    printf("transforming %f %f %f\n", z2[0],z2[1],z2[2]);
+//    printf("transforming %f %f %f\n", z3[0],z3[1],z3[2]);
+//    fflush(stdout);
 	transform(v1,z1);
 	transform(v2,z2);
 	transform(v3,z3);
+ //   printf("     %f %f %f\n", v1[0],v1[1],v1[2]);
+ //   printf("     %f %f %f\n", v2[0],v2[1],v2[2]);
+ //   printf("     %f %f %f\n", v3[0],v3[1],v3[2]);
+
+
+   // fflush(stdout);
 
     float miny = bbox[1];
     float maxy = bbox[4];
 
     if (v1[1] > maxy && v2[1] > maxy && v3[1] > maxy  ) {return;}
     if (v1[1] < miny && v2[1] < miny  && v3[1] < miny ) {return;}
+    if (isnan( v1[0] )) {return;}
+    if (isnan( v1[1] )) {return;}
+    if (isnan( v1[2] )) {return;}
+    if (isnan( v2[0] )) {return;}
+    if (isnan( v2[1] )) {return;}
+    if (isnan( v2[2] )) {return;}
+    if (isnan( v3[0] )) {return;}
+    if (isnan( v3[1] )) {return;}
+    if (isnan( v3[2] )) {return;}
 
 	float n[3];
 	triangle_normal(v1,v2,v3,&n[0]);
@@ -110,11 +129,12 @@ void print_triangle_bbox( float* z1, float* z2, float* z3 , FILE* fp, float* bbo
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
-	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
-	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
-	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
+    fflush(fp);
 
 }
 
@@ -138,9 +158,13 @@ void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
-	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
-	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
-	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
+
+//	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
+//	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+//	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
 
@@ -214,19 +238,28 @@ int main(int argc, char *argv[])
             int n1 = texture->triangles[3*i];
             int n2 = texture->triangles[3*i+1];
             int n3 = texture->triangles[3*i+2];
+
+            if ( texture->nxpoints <= n1 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n1, 
+            texture->nxpoints,i, texture->ntriangles);}
+            assert( texture->nxpoints > n1 );
+            assert( texture->nxpoints > n2 );
+            assert( texture->nxpoints > n3 );
+
             //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
             float v1[3] = { texture->xpoints[n1*3+0] ,texture->xpoints[n1*3+1] ,texture->xpoints[n1*3+2] };
             float v3[3] = { texture->xpoints[n2*3+0] ,texture->xpoints[n2*3+1] ,texture->xpoints[n2*3+2]};
             float v2[3] = { texture->xpoints[n3*3+0] ,texture->xpoints[n3*3+1] ,texture->xpoints[n3*3+2] };
-
+ 
+//            assert( texture->nxpoints < n1 );
 //            float v2[3] = { texture->paths[i*6+2] ,texture->paths[i*6+3] , 0.1 };
 //            float v3[3] = { texture->paths[i*6+4] ,texture->paths[i*6+5] , 0.1 };
             print_triangle_bbox(v1,v2,v3, stlfile, bbox);
         }
 
 
-
-
+        fflush( stlfile );
+        printf("done writing triangles for texture\n");
+        fflush(stdout);
 
         // print out the shell of the surface itself -- outside
         for (int i=0; i<mt->npaths; i++) {

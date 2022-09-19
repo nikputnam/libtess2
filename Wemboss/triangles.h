@@ -15,7 +15,7 @@ typedef struct MeshTriangles
 
 
 MeshTriangles* parse_triangles(char* filename, float width) ;
-MeshTriangles* parse_triangles_internal(char* filename, float width,int with_normals) ;
+MeshTriangles* parse_triangles_internal(char* filename, float width,int with_normals, int reduplicate) ;
 MeshTriangles* parse_triangles_with_normals(char* filename, float width) ;
 void mesh_interpolation(MeshTriangles* mt, float* xy, float* uv) ;
 void write_to_stl( MeshTriangles* t, FILE* stlfile ) ;

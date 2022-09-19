@@ -112,14 +112,14 @@ void write_to_stl( MeshTriangles* t, FILE* stlfile ) {
 }
 
 MeshTriangles* parse_triangles(char* filename, float width) {
-    return parse_triangles_internal( filename, width, 0 );
+    return parse_triangles_internal( filename, width, 0, 1 );
 }
 
 MeshTriangles* parse_triangles_with_normals(char* filename, float width) {
-    return parse_triangles_internal( filename, width, 1 );
+    return parse_triangles_internal( filename, width, 1, 0 );
 }
 
-MeshTriangles* parse_triangles_internal(char* filename, float width, int with_normals) {
+MeshTriangles* parse_triangles_internal(char* filename, float width, int with_normals, int reduplicate) {
 
     MeshTriangles* mt = malloc(sizeof(MeshTriangles));
 
@@ -157,12 +157,21 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
         }
     }
 
+    if (reduplicate) {
     // x3 because we're replicating the interpolation mesh 
-    mt->npoints = 3*npoints;
-    mt->ntpoints = 3*ntpoints;
-    mt->nxpoints = nxpoints;
-    mt->ntriangles = 3*ntriangles;
-    mt->npaths = 3*ntriangles;
+        mt->npoints = 3*npoints;
+        mt->ntpoints = 3*ntpoints;
+        mt->nxpoints = nxpoints;
+        mt->ntriangles = 3*ntriangles;
+        mt->npaths = 3*ntriangles;
+    } else {
+        mt->npoints = npoints;
+        mt->ntpoints = ntpoints;
+        mt->nxpoints = nxpoints;
+        mt->ntriangles = ntriangles;
+        mt->npaths = ntriangles;
+
+    }
 
     printf("npoints: %d\n",npoints);
     printf("ntpoints: %d\n",ntpoints);
@@ -171,13 +180,13 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
 
     fclose(file);
 
-    mt->points = malloc( sizeof(float)*npoints*2 *3 );  assert(mt->points != 0);
-    mt->tpoints = malloc( sizeof(float)*ntpoints*2 *3 );assert(mt->tpoints != 0);
-    mt->xpoints = malloc( sizeof(float)*nxpoints*3 );assert(mt->xpoints != 0);
-    mt->triangles = malloc( sizeof(int)*ntriangles*3 *3 );assert(mt->triangles != 0);
-    mt->ttriangles = malloc( sizeof(int)*ntriangles*3 *3 );assert(mt->ttriangles != 0);
+    mt->points = malloc( sizeof(float)*(mt->npoints)*2  );  assert(mt->points != 0);
+    mt->tpoints = malloc( sizeof(float)*(mt->ntpoints)*2  );assert(mt->tpoints != 0);
+    mt->xpoints = malloc( sizeof(float)*(mt->nxpoints)*3 );assert(mt->xpoints != 0);
+    mt->triangles = malloc( sizeof(int)*(mt->ntriangles)*3  );assert(mt->triangles != 0);
+    mt->ttriangles = malloc( sizeof(int)*(mt->ntriangles)*3  );assert(mt->ttriangles != 0);
   //  mt->xtriangles = malloc( sizeof(int)*ntriangles*3 );assert(mt->xtriangles != 0);
-    mt->paths = malloc( sizeof(float)*ntriangles*6 *3 );assert(mt->paths != 0);
+    mt->paths = malloc( sizeof(float)*ntriangles*6 );assert(mt->paths != 0);
 
     file = fopen(filename, "r");   assert(file);
     printf("x\n"); fflush(stdout);
@@ -265,6 +274,7 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
     }
 
 
+    if (reduplicate) {
    
         //replicate image points two more times
         int ni = i;
@@ -296,7 +306,7 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
         } 
         assert(j==ntriangles*3 *3);
 
-
+    
 
 /*
 
@@ -336,6 +346,7 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
             mt->ttriangles[m++]=mt->ttriangles[jj]+nl;
         } 
 
+    }
         k=0;
         for (int i=0; i<mt->ntriangles;i++ ) {
                 mt->paths[k++] = mt->tpoints[ mt->triangles[i*3]*2  ];
@@ -346,7 +357,7 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
                 mt->paths[k++] = mt->tpoints[ mt->triangles[i*3+2]*2 +1];
         }
 
-        assert(k==ntriangles*6*3);
+       // assert(k==ntriangles*6*3);
 
     printf("%d %d\n",i,j);
     fflush(stdout);
