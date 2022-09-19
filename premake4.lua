@@ -78,8 +78,8 @@ solution "libtess2"
 	kind "ConsoleApp"
 	language "C"
 	links { "tess2" }
-	files { "geowrap/main.c", "Contrib/frozen.c", "geowrap/triangles.c", "geowrap/surface.c" }
-	includedirs { "Include", "Contrib", "geowrap", "Source", "/opt/homebrew/include" }
+	files { "geowrap/main.c", "Contrib/frozen.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
+	includedirs { "Include", "Contrib", "geowrap", "Source", "WEmboss", "/opt/homebrew/include" }
 	targetdir("Build")
 
 	configuration { "macosx" }

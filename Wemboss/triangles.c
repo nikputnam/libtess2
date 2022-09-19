@@ -5,9 +5,121 @@
 #include <math.h>
 #include <assert.h>
 #include "triangles.h"
+#include "vectorops.h"
 
+
+
+void triangle_normal(float* v1, float* v2, float* v3, float *n) {
+
+	float a[3];
+	float b[3];
+
+	a[0] = v2[0] - v1[0];
+	a[1] = v2[1] - v1[1];
+	a[2] = v2[2] - v1[2];
+
+	b[0] = v3[0] - v1[0];
+	b[1] = v3[1] - v1[1];
+	b[2] = v3[2] - v1[2];
+
+	cross_product( &a[0], &b[0], &n[0] );
+
+	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
+	if (l==0.0) { 
+		n[0]=0.0;
+		n[1]=0.0;
+		n[2]=0.0;
+		return;
+	}
+	n[0] /= l;
+	n[1] /= l;
+	n[2] /= l;
+}
+
+
+void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) {
+
+
+	float n[3];
+	triangle_normal(v1,v2,v3,&n[0]);
+
+	//printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	//fprintf(fp,"  facet normal %f %f %f\n", 0.0,0.0,0.0);
+    fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	fprintf(fp,"    outer loop\n");
+	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
+	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	fprintf(fp,"    endloop\n");
+	fprintf(fp,"  endfacet\n");
+
+
+}
+
+void apply_transform_to_mesh(MeshTriangles*  t,  void(*trnsfrm)(float*, float*) ) {
+    for (int i=0;i<t->nxpoints;i++) {
+
+        printf("%f %f %f\n", t->xpoints[3*i], t->xpoints[3*i+1], t->xpoints[3*i+2]);
+        //t->xpoints[3*i+2] = 0.0;
+        trnsfrm( & t->xpoints[3*i], & t->xpoints[3*i] );
+        printf("                                   -> %f %f %f\n", t->xpoints[3*i], t->xpoints[3*i+1], t->xpoints[3*i+2]);
+
+        if (i%10000 == 0) { printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b%d / %d = %f",i,t->nxpoints, ((float)i) / t->nxpoints) ;   fflush(stdout);}
+        printf("\n");
+    }
+
+}
+
+
+void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater, float zscale ) {
+
+    for (int i=0;i<t->nxpoints;i++) {
+
+       // printf("%f %f %f\n", t->xpoints[3*i], t->xpoints[3*i+1], t->xpoints[3*i+2]);
+        mesh_interpolation(interpolater, & t->xpoints[3*i], & t->xpoints[3*i] );
+        t->xpoints[3*i+2] = zscale*t->xpoints[3*i+2]; 
+        //t->xpoints[3*i+1] = t->xpoints[3*i+1] * -1.0;
+
+        //printf("                                   -> %f %f %f\n", t->xpoints[3*i], t->xpoints[3*i+1], t->xpoints[3*i+2]);
+
+        if (i%10000 == 0) { printf("%d / %d = %f\n",i,t->nxpoints, ((float)i) / t->nxpoints) ; }
+    }
+
+}
+
+
+void write_to_stl( MeshTriangles* t, FILE* stlfile ) {
+    //FILE* stlfile = fopen(filename, "wt"); 
+	//fprintf(stlfile,"solid x\n");
+
+    for (int i=0;i<t->ntriangles;i++) {
+//        fprintf(stlfile,"triangle %d\n",i);
+        int v1 = t->triangles[i*3];
+        int v2 = t->triangles[i*3+1];
+        int v3 = t->triangles[i*3+2];
+/*
+        fprintf(stlfile,"%d %d %d\n",v1,v2,v3 );
+        fprintf(stlfile,"%f %f %f\n",t->xpoints[v1*3], t->xpoints[v1*3+1],  t->xpoints[v1*3+2] );
+        fprintf(stlfile,"%f %f %f\n",t->xpoints[v2*3], t->xpoints[v2*3+1],  t->xpoints[v2*3+2] );
+        fprintf(stlfile,"%f %f %f\n",t->xpoints[v3*3], t->xpoints[v3*3+1],  t->xpoints[v3*3+2] );
+*/
+        print_triangle_raw( &t->xpoints[v1*3], &t->xpoints[v2*3], &t->xpoints[v3*3], stlfile);
+
+    }
+
+//	fprintf(stlfile, "endsolid x\n");
+//    fclose(stlfile);
+}
 
 MeshTriangles* parse_triangles(char* filename, float width) {
+    return parse_triangles_internal( filename, width, 0 );
+}
+
+MeshTriangles* parse_triangles_with_normals(char* filename, float width) {
+    return parse_triangles_internal( filename, width, 1 );
+}
+
+MeshTriangles* parse_triangles_internal(char* filename, float width, int with_normals) {
 
     MeshTriangles* mt = malloc(sizeof(MeshTriangles));
 
@@ -20,12 +132,18 @@ MeshTriangles* parse_triangles(char* filename, float width) {
     int npoints = 0;
     int ntriangles = 0;
     int ntpoints = 0;
+    int nxpoints = 0;
     while (fgets(line, sizeof(line), file)) {
         /* note that fgets don't strip the terminating \n, checking its
            presence would allow to handle lines longer that sizeof(line) */
         if (strncmp(line,"vn ",3)==0) { 
             //printf("%s", line); 
             ntpoints++;
+        }
+
+        if (strncmp(line,"v ",2)==0) { 
+            //printf("%s", line); 
+            nxpoints++;
         }
 
         if (strncmp(line,"vt ",3)==0) { 
@@ -42,19 +160,23 @@ MeshTriangles* parse_triangles(char* filename, float width) {
     // x3 because we're replicating the interpolation mesh 
     mt->npoints = 3*npoints;
     mt->ntpoints = 3*ntpoints;
+    mt->nxpoints = nxpoints;
     mt->ntriangles = 3*ntriangles;
     mt->npaths = 3*ntriangles;
 
     printf("npoints: %d\n",npoints);
     printf("ntpoints: %d\n",ntpoints);
+    printf("nxpoints: %d\n",nxpoints);
     printf("ntriangles: %d\n",ntriangles);
 
     fclose(file);
 
     mt->points = malloc( sizeof(float)*npoints*2 *3 );  assert(mt->points != 0);
     mt->tpoints = malloc( sizeof(float)*ntpoints*2 *3 );assert(mt->tpoints != 0);
+    mt->xpoints = malloc( sizeof(float)*nxpoints*3 );assert(mt->xpoints != 0);
     mt->triangles = malloc( sizeof(int)*ntriangles*3 *3 );assert(mt->triangles != 0);
     mt->ttriangles = malloc( sizeof(int)*ntriangles*3 *3 );assert(mt->ttriangles != 0);
+  //  mt->xtriangles = malloc( sizeof(int)*ntriangles*3 );assert(mt->xtriangles != 0);
     mt->paths = malloc( sizeof(float)*ntriangles*6 *3 );assert(mt->paths != 0);
 
     file = fopen(filename, "r");   assert(file);
@@ -64,6 +186,7 @@ MeshTriangles* parse_triangles(char* filename, float width) {
     int k=0;
     int l=0;
     int m=0;
+    int xi=0;
     while (fgets(line, sizeof(line), file)) {
                   //  printf("%d %d %d %d %s", i, l, j , m, line);  fflush(stdout);
 
@@ -81,6 +204,21 @@ MeshTriangles* parse_triangles(char* filename, float width) {
 //            mt->points[i++]=y;
         }
 
+        if (strncmp(line,"v ",2)==0) { 
+            float x;
+            float y;
+            float z;
+            //printf("%s", line); 
+            sscanf(line,"v %f %f %f",&x,&y,&z);
+           // printf("l= %d ntpoints= %d %f %f %s\n",l,ntpoints,x,y,line);fflush(stdout);
+            assert(xi<3*nxpoints);
+            mt->xpoints[xi++]=x;
+            mt->xpoints[xi++]=-1.0*z;
+            mt->xpoints[xi++]=y;
+            //printf("vv1: %f %f %f\n",x,-1.0*z,y);
+        }
+
+
         if (strncmp(line,"vn ",3)==0) { 
             float x;
             float y;
@@ -94,9 +232,13 @@ MeshTriangles* parse_triangles(char* filename, float width) {
 
 
         if (strncmp(line,"f ",2)==0) { 
-            int a,b,c,x,y,z;
+            int a,b,c,x,y,z, n1,n2,n3;
             
-            sscanf(line,"f %d/%d %d/%d %d/%d",&a,&x,&b,&y,&c,&z);
+            if (with_normals) {
+                sscanf(line,"f %d/%d/%d %d/%d/%d %d/%d/%d",&a,&x,&n1,&b,&y,&n2,&c,&z,&n3);
+            } else {
+                sscanf(line,"f %d/%d %d/%d %d/%d",&a,&x,&b,&y,&c,&z);
+            }
             //flip triangles
 //            sscanf(line,"f %d/%d %d/%d %d/%d",&c,&z,&b,&y,&a,&x);
 //            sscanf(line,"f %d/%d %d/%d %d/%d",&c,&x,&b,&y,&a,&z);
