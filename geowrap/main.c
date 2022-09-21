@@ -95,7 +95,8 @@ void printf_triangle(float* x) {
 #define TBUFF_SIZE 3*3*32
 void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
          Plane* rs_planes, int n_rs_planes, 
-         Plane* xyz_planes, int n_xyz_planes         
+         Plane* xyz_planes, int n_xyz_planes ,
+         float* offset        
          ) {
     float triangles[ TBUFF_SIZE ];
     float triangles2[ TBUFF_SIZE ];
@@ -118,7 +119,7 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
             clip_triangle( &triangles[ ti*9 ] , &triangles[ ti*9 +3], &triangles[ ti*9 +6], 
             &triangles[ nt*9 ], &rs_planes[pi], &tr );
             nr *= tr;
-            if (tr>1) { nt++; printf("nt=%d\n",nt);
+            if (tr>1) { nt++; //printf("nt=%d\n",nt);
              assert(nt*9<TBUFF_SIZE);} 
         }
         if (nr>0) {
@@ -137,19 +138,26 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
         int nr = 1;
         int nt20 = nt2;
         for(int pi=0;pi<n_xyz_planes;pi++) {
-            printf("clip with xyzplane ");
-            printf_triangle(&triangles2[ ti2*9 ]);
+            //printf("clip with xyzplane ");
+           // printf_triangle(&triangles2[ ti2*9 ]);
             int tr = 0; 
             clip_triangle( &triangles2[ ti2*9 ] , &triangles2[ ti2*9 +3], &triangles2[ ti2*9 +6], 
             &triangles2[ nt2*9 ], &xyz_planes[pi], &tr );
             nr *= tr;
             if (tr>1) { 
-                printf_triangle(&triangles2[ nt2*9 ]);
-            nt2++; printf("nt=%d\n",nt);
+              //  printf_triangle(&triangles2[ nt2*9 ]);
+            nt2++; //printf("nt=%d\n",nt);
              assert(nt*9<TBUFF_SIZE);} 
         }
         if (nr>0) {
-            stl_triangle( &triangles2[ ti2*9 ] , &triangles2[ ti2*9 +3], &triangles2[ ti2*9 +6], fp );
+                add( &triangles2[ ti2*9 ], &triangles2[ ti2*9 ],  offset);
+                add( &triangles2[ ti2*9+3 ], &triangles2[ ti2*9+3 ],  offset);
+                add( &triangles2[ ti2*9+6 ], &triangles2[ ti2*9+6 ],  offset);
+
+            stl_triangle( 
+                &triangles2[ ti2*9 ]  , 
+                &triangles2[ ti2*9 +3] , 
+                &triangles2[ ti2*9 +6] , fp );
 
         } 
 
@@ -327,70 +335,128 @@ int main(int argc, char *argv[])
         //apply_transform_to_mesh( texture, transf_X );
         //write_to_stl(texture,stlfile);
 
+//        for(int quadrant=1; quadrant<2; quadrant++ ) {
+        for(int quadrant=0; quadrant<5; quadrant++ ) {
+
+            float offset[3];  
+            float mins = 0; //= atan( spec.squash)/(2.0*M_PI) ;
+            float maxs = 0; // = 0.5- (atan( spec.squash ) / (2.0*M_PI));
+
+            float offset_size = 25.0;
+            float thickness = 10.0;
+            float angle_pad = 0.005;
+
+            switch (quadrant) {
+                case 0:
+                    set(offset, (float[3]) { offset_size,0,0 });
+                    mins = 0.0 - (atan( spec.squash ) / (2.0*M_PI)) - angle_pad;
+                    maxs = 0.0 + (atan( spec.squash)/(2.0*M_PI)) + angle_pad ;
+
+                    break;
+                case 1:
+                    set(offset, (float[3]) { 0, 0,offset_size });
+                    mins = atan( spec.squash)/(2.0*M_PI) - angle_pad;
+                    maxs = 0.5 - (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
+
+                    break;
+                case 2:
+                    set(offset, (float[3]) { -offset_size,0,0 });
+                    mins = 0.5 - (atan( spec.squash ) / (2.0*M_PI))  - angle_pad; // atan( spec.squash)/(2.0*M_PI) ;
+                    maxs = 0.5 + (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
+
+                    break;
+                case 3:
+                    set(offset, (float[3]) { 0,0,-offset_size });
+                    mins = 0.5 + (atan( spec.squash ) / (2.0*M_PI)) - angle_pad; // atan( spec.squash)/(2.0*M_PI) ;
+                    maxs = 1.0 - (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
+
+                    break;
+                case 4:
+                    set(offset, (float[3]) { offset_size,0,0 });
+                    mins = 1.0 - (atan( spec.squash ) / (2.0*M_PI)) - angle_pad;
+                    maxs = 1.0 + (atan( spec.squash)/(2.0*M_PI))  + angle_pad;
+
+                    break;
+            }
+
+            printf("quadrant %d:  offset %f %f %.0f %.0f %.0f\n",quadrant,mins,maxs, offset[0],offset[1],offset[2]);
+
+            printf("atan thing = %f\n", -mins  );
+            printf("atan thing = %f\n", maxs  );
+
+            Plane clip_rs_planes[3];
+            clip_rs_planes[0] = (Plane){ {0,  1, 0}, -mins };
+            clip_rs_planes[1] = (Plane){ {0, -1, 0},  maxs  };
+            clip_rs_planes[2] = (Plane){ {0,  0, 1},  0.1  };
+
+            Plane clip_xyz_planes[2];
+            clip_xyz_planes[0] = (Plane){ {0,1,0}, 0.0 };
+            clip_xyz_planes[1] = (Plane){ {0,-1,0}, bbox[4] };
+            
+
+            for (int i=0; i<texture->ntriangles; i++) {
+                //printf("mt path %d\n",i);
+                int n1 = texture->triangles[3*i];
+                int n2 = texture->triangles[3*i+1];
+                int n3 = texture->triangles[3*i+2];
+
+                if ( texture->nxpoints <= n1 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n1, 
+                texture->nxpoints,i, texture->ntriangles);}
+                assert( texture->nxpoints > n1 );
+                assert( texture->nxpoints > n2 );
+                assert( texture->nxpoints > n3 );
+
+                //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
+                float v1[3] = { texture->xpoints[n1*3+0] ,texture->xpoints[n1*3+1] ,texture->xpoints[n1*3+2] };
+                float v3[3] = { texture->xpoints[n2*3+0] ,texture->xpoints[n2*3+1] ,texture->xpoints[n2*3+2]};
+                float v2[3] = { texture->xpoints[n3*3+0] ,texture->xpoints[n3*3+1] ,texture->xpoints[n3*3+2] };
+    
+    //            assert( texture->nxpoints < n1 );
+    //            float v2[3] = { texture->paths[i*6+2] ,texture->paths[i*6+3] , 0.1 };
+    //            float v3[3] = { texture->paths[i*6+4] ,texture->paths[i*6+5] , 0.1 };
+
+              print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 3, clip_xyz_planes, 2,offset);
+//                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2,offset); //2 omits inside clip
+    //            print_triangle_bbox(v1,v2,v3, stlfile, bbox);
+            }
+
+            fflush( stlfile );
+            printf("done writing triangles for texture\n");
+            fflush(stdout);
+
+            if (quadrant>=4) {continue;}
+
+            //if (quadrant==1) {
+                write_surface_stl( &transform, stlfile, mins, maxs, thickness,offset );
+            //}
+            /*
+            // print out the shell of the surface itself -- outside
+            for (int i=0; i<mt->npaths; i++) {
+                //printf("mt path %d\n",i);
+                //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
+                float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , 0.1 };
+                float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] , 0.1 };
+                float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] , 0.1 };
+                //print_triangle(v1,v2,v3, stlfile);
+                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0, offset);
 
 
-        float mins = atan( spec.squash)/(2.0*M_PI) ;
-        float maxs = 0.5- (atan( spec.squash ) / (2.0*M_PI));
-        printf("atan thing = %f\n", -mins  );
-        printf("atan thing = %f\n", maxs  );
+                float v1a[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , -thickness };
+                float v2a[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,  -thickness};
+                float v3a[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,  -thickness };
+                //print_triangle(v1,v2,v3, stlfile);
+                print_triangle_clipped(v1a,v3a,v2a, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0, offset);
 
-        Plane clip_rs_planes[3];
-        clip_rs_planes[0] = (Plane){ {0,  1, 0}, -mins };
-        clip_rs_planes[1] = (Plane){ {0, -1, 0},  maxs  };
-//        clip_rs_planes[2] = (Plane){ {0,  0, 1},  0  };
+            }
+            */
+            
+            write_parting_sufrace_stl( quadrant, 200.0 , &spec,  stlfile, offset, thickness, 0); 
+            write_parting_sufrace_stl( quadrant-1, 200.0 , &spec,  stlfile, offset, thickness, 1); 
+//            write_parting_sufrace_stl( 1, 200.0 , &spec,  stlfile, offset); 
+//            write_parting_sufrace_stl( 2, 200.0 , &spec,  stlfile, offset); 
+//            write_parting_sufrace_stl( 3, 200.0 , &spec,  stlfile, offset); 
 
-        Plane clip_xyz_planes[2];
-        clip_xyz_planes[0] = (Plane){ {0,1,0}, 0.0 };
-        clip_xyz_planes[1] = (Plane){ {0,-1,0}, bbox[4] };
-        
-
-        for (int i=0; i<texture->ntriangles; i++) {
-            //printf("mt path %d\n",i);
-            int n1 = texture->triangles[3*i];
-            int n2 = texture->triangles[3*i+1];
-            int n3 = texture->triangles[3*i+2];
-
-            if ( texture->nxpoints <= n1 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n1, 
-            texture->nxpoints,i, texture->ntriangles);}
-            assert( texture->nxpoints > n1 );
-            assert( texture->nxpoints > n2 );
-            assert( texture->nxpoints > n3 );
-
-            //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
-            float v1[3] = { texture->xpoints[n1*3+0] ,texture->xpoints[n1*3+1] ,texture->xpoints[n1*3+2] };
-            float v3[3] = { texture->xpoints[n2*3+0] ,texture->xpoints[n2*3+1] ,texture->xpoints[n2*3+2]};
-            float v2[3] = { texture->xpoints[n3*3+0] ,texture->xpoints[n3*3+1] ,texture->xpoints[n3*3+2] };
- 
-//            assert( texture->nxpoints < n1 );
-//            float v2[3] = { texture->paths[i*6+2] ,texture->paths[i*6+3] , 0.1 };
-//            float v3[3] = { texture->paths[i*6+4] ,texture->paths[i*6+5] , 0.1 };
-
-            print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2);
-//            print_triangle_bbox(v1,v2,v3, stlfile, bbox);
         }
-
-
-        fflush( stlfile );
-        printf("done writing triangles for texture\n");
-        fflush(stdout);
-
-
-        // print out the shell of the surface itself -- outside
-        for (int i=0; i<mt->npaths; i++) {
-            //printf("mt path %d\n",i);
-            //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
-            float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , -0.1 };
-            float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] , -0.1 };
-            float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] , -0.1 };
-            //print_triangle(v1,v2,v3, stlfile);
-            print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0);
-
-        }
-        
-        write_parting_sufrace_stl( 0, 200.0 , &spec,  stlfile); 
-        write_parting_sufrace_stl( 1, 200.0 , &spec,  stlfile); 
-        write_parting_sufrace_stl( 2, 200.0 , &spec,  stlfile); 
-        write_parting_sufrace_stl( 3, 200.0 , &spec,  stlfile); 
 
 	fprintf(stlfile, "endsolid x\n");
     fclose(stlfile);

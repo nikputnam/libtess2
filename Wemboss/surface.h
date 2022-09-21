@@ -47,7 +47,13 @@ void scale_spec(float scale, pottoy_spec_t* spec) ;
 
 void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sectors, int mn_levels);
 
-void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spec, float* result) ;
+void mold_parting_norm_ray( float u, float l,float thickness, int quadrant  , pottoy_spec_t* spec, float* result) ;
 
-void write_parting_sufrace_stl( int quadrant, float l , pottoy_spec_t* spec, FILE* stlfile) ;
+//void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spec, float* result) ;
+void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
+     float thickness,  int reverse) ;
+
+//void write_parting_sufrace_stl( int quadrant, float l , pottoy_spec_t* spec, FILE* stlfile) ;
 void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) ;
+
+void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs, float thickness , float* offset) ;

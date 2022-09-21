@@ -54,6 +54,14 @@ void set2(float* r, float* a) {
 	r[1] = a[1] ;
 }
 
+
+void scale(float* p, float a) {
+	p[0] *= a ;
+	p[1] *= a ;
+	p[2] *= a ;
+}
+
+
 void set(float* r, float* a) {
 	r[0] = a[0] ;
 	r[1] = a[1] ;

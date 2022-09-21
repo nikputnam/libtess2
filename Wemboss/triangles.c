@@ -525,7 +525,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 
 
 	if (da<0.0 && db>=0.0 && dc>=0.0 ) {   // only a rejected; 
-    printf("a rejected\n"); 
+    //printf("a rejected\n"); 
         float a0[3];
         set(&a0[0],a);
 		segment_plane_intersection(a,b,a,p);  // replace b with ab-plane intersection 
@@ -540,7 +540,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 
 
 	if (dc<0.0 && da>=0.0 && db>=0.0 ) {   // only c rejected;  
-        printf("c rejected\n"); 
+    //    printf("c rejected\n"); 
 
         float c0[3];
         set(c0,c);
@@ -563,7 +563,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 	}
 
 	if (db<0.0 && da>=0.0 && dc>=0.0 ) {   // only b rejected;  
-        printf("b rejected\n"); 
+    //    printf("b rejected\n"); 
 
         float b0[3];
         set(&b0[0],b);

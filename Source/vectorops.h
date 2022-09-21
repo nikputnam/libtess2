@@ -27,6 +27,7 @@ float norm(float* n);
 int vequal2(float* a, float* b);
 int vequal3(float* a, float* b);
 
+void scale(float* p, float a) ;
 
 float dot2(float* x, float* y);
 

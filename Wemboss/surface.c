@@ -146,42 +146,250 @@ void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
 
 }
 
-void stl_printquad( float* ray1 , float* ray2 , FILE* fp ) {
+void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
 
-    stl_triangle( &ray1[0], &ray1[3], &ray2[0] ,fp );
-    stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp );
-
+    if (flip) {
+        stl_triangle( &ray1[0], &ray1[3], &ray2[3] ,fp );
+        stl_triangle( &ray1[0], &ray2[3], &ray2[0] ,fp );
+    } else {
+        stl_triangle( &ray1[0], &ray1[3], &ray2[0] ,fp );
+        stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp );
+    }
 }
+void mold_parting_surface_norm(float u, int quadrant, pottoy_spec_t* spec, float* result) ;
 
-void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile) {
+
+void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
+      float thickness, int reverse) {
     float ray1[6];
     float ray2[6];
 
-    int n_segments = 25;
+    float ray1_back[6];
+    float ray2_back[6];
+    float norm[3];
+
+    int n_segments = 50;
     float delta_t = 1.0 / ((float) n_segments);
     float t=0.0;
 
-    mold_parting_norm_ray( t, l , quadrant, spec, &ray1[0]);
+    mold_parting_norm_ray( t, l , thickness, quadrant, spec, &ray1[0]);
+    add(ray1,ray1,offset);
+    add(&ray1[3],&ray1[3],offset);
+
+    mold_parting_surface_norm(t, quadrant,  spec, norm); scale(norm, reverse ? thickness : -thickness);
+    memcpy( &ray1_back[0] , &ray1[0] , sizeof(float)*6 );
+    add(ray1_back,ray1_back, norm );
+    add(&ray1_back[3],&ray1_back[3], norm );
+
+
     for(int i=0; i<n_segments; i++) {
         printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
             ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
 
         t += delta_t;
 
-        mold_parting_norm_ray( t, l , quadrant, spec, &ray2[0]);
+        mold_parting_norm_ray( t, l, thickness , quadrant, spec, &ray2[0]);
+        add(ray2,ray2,offset);
+        add(&ray2[3],&ray2[3],offset);
 
-        stl_printquad( &ray1[0],&ray2[0],stlfile );
-        stl_printquad( &ray2[0],&ray1[0],stlfile );
+        mold_parting_surface_norm(t, quadrant,  spec, norm); scale(norm,reverse ? thickness : -thickness);
+        memcpy( &ray2_back[0] , &ray2[0] , sizeof(float)*6 );
+        add(ray2_back, ray2_back, norm );
+        add(&ray2_back[3], &ray2_back[3], norm );
+
+        if (reverse) {
+            stl_printquad( &ray1[0],&ray2[0],stlfile, 0 );
+            stl_printquad( &ray2_back[0],&ray1_back[0],stlfile, 1 );
+
+            stl_triangle( &ray1[3], &ray1_back[3], &ray2[3] ,stlfile );  //edge of the thing
+            stl_triangle( &ray2[3], &ray1_back[3], &ray2_back[3],stlfile );  //edge of the thing
+            
+            stl_triangle( &ray1[0],  &ray2[0] ,&ray1_back[0],stlfile );  //edge of the thing
+            stl_triangle( &ray2[0], &ray2_back[0], &ray1_back[0],stlfile );  //edge of the thing
+//            stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp ); 
+
+        } else {
+            stl_printquad( &ray2[0],&ray1[0],stlfile, 1 );
+            stl_printquad( &ray1_back[0],&ray2_back[0],stlfile, 0 );
+
+            stl_triangle( &ray1[3], &ray2[3], &ray1_back[3] ,stlfile );  //edge of the thing
+            stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
+
+            stl_triangle( &ray1[0], &ray1_back[0], &ray2[0] ,stlfile );  //edge of the thing
+            stl_triangle( &ray2[0], &ray1_back[0], &ray2_back[0],stlfile );  //edge of the thing
+
+          //  stl_triangle( &ray1[0], &ray1[3], &ray2[0] ,fp );  //edge of the thing
+          //  stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp ); 
+
+        }
 
         memcpy( &ray1[0] , &ray2[0] , sizeof(float)*6 );
+        memcpy( &ray1_back[0] , &ray2_back[0] , sizeof(float)*6 );
     }
 }
 
-// this is the unfaceted surface only
-void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spec, float* result) {
+void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs , float thickness, float* offset) {
 
-    float s1 = (quadrant & 1) ? 1.0 : -1.0 ;
-    float s2 = (quadrant & 2) ? 1.0 : -1.0 ;
+    int n_s_segments = 50;
+    int n_t_segments = 50;
+
+    float delta_s = (maxs-mins)/((float) n_s_segments );
+    float delta_t = 1.0/((float) n_t_segments );
+
+    float s=mins;
+    float t=0.0;
+
+    float x[24];  // a cube of coordinates
+    float z[24];  // a cube of coordinates
+
+    for(int n=0; n<n_s_segments;n++) {
+    for(int m=0; m<n_t_segments;m++) {
+        printf( "nm %d %d\n", n,m );
+        
+            for(int i=0;i<=1;i++) {
+                for(int j=0;j<=1;j++) {
+                    for(int k=0;k<=1;k++) {
+                        x[  12*i + 6*j + 3*k +0 ] = (m+k)*delta_t ;
+                        x[  12*i + 6*j + 3*k +1 ] = mins + (n+j)*delta_s ;
+                        x[  12*i + 6*j + 3*k +2 ] = -(((float)i))*thickness;
+                        printf("x[%d] %f %d %d %d %d %d %f %f\n",12*i + 6*j + 3*k +2, x[  12*i + 6*j + 3*k +2 ] ,i,j,k,n,m,delta_t,delta_s);
+                        printf("%f %f %f\n",x[  12*i + 6*j + 3*k +0 ] ,x[  12*i + 6*j + 3*k +1 ] ,x[  12*i + 6*j + 3*k +2 ] );
+                    }
+                }
+            }
+        
+
+        for(int i=0;i<8;i++) {
+        	trnsfrm(&z[3*i],&x[3*i] ) ;
+            add(&z[3*i],&z[3*i],offset);
+        }
+
+        stl_printquad( &z[0] , &z[6], stlfile, 0 ) ;
+        stl_printquad( &z[18] , &z[12], stlfile, 0 ) ;
+        //stl_printquad( &x[12] , &x[18], stlfile, 1 ) ;
+
+        if (n==0) {
+            stl_triangle( &z[ 0 ], &z[12], &z[3] ,stlfile );  //edge of the thing
+            stl_triangle( &z[ 12 ], &z[15], &z[3] ,stlfile );  //edge of the thing
+            //stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
+        }
+        if (n==n_s_segments-1) {
+            stl_triangle( &z[ 6 ], &z[9], &z[18] ,stlfile );  //edge of the thing
+            stl_triangle( &z[ 18 ], &z[9], &z[21] ,stlfile );  //edge of the thing
+            //stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
+        }
+
+    } 
+    }
+
+}
+
+
+void mold_parting_surface_norm(float u, int quadrant, pottoy_spec_t* spec, float* result) {
+
+
+    quadrant = (quadrant + 4)%4;
+    float s1=0; //= (quadrant & 1) ? -1.0 : 1.0 ;
+    float s2=0; //= (quadrant & 2) ? 1.0 : -1.0 ;
+
+    switch (quadrant) {
+        case 0:
+            s1 = 1.0;
+            s2 = 1.0;
+
+            break;
+        case 1:
+            s1 = -1.0;
+            s2 = 1.0;
+
+            break;
+        case 2:
+            s1 = -1.0;
+            s2 = -1.0;
+
+            break;
+        case 3:
+            s1 = 1.0;
+            s2 = -1.0;
+            break;
+    }
+
+
+    float curve_p[2];
+
+//	spline_getPoint( uv[0], &point[0], spec );
+    catmullrom2(u,&spec->points[0], spec->npoints, &curve_p[0]);
+    
+	float r = curve_p[0];
+	float y = curve_p[1];
+
+    float b_squared = spec->squash*spec->squash;
+    float cos_theta = 1.0 / sqrt(1.0 + b_squared) ;
+    float sin_theta = spec->squash / sqrt(1.0 + b_squared) ;
+
+//    v1[0] = s1 * r * cos_theta ;
+//    v1[1] = y;
+//    v1[2] = s2 * r * spec->squash*sin_theta;
+
+    //find the surface normal.
+    float t1[3];  // 45 degrees to x and y
+    float t2rs[2];  // along the spline
+    float t2[3];  // along the spline
+
+    t1[0] = -s2;
+    t1[1] =  0.0;
+    t1[2] =  s1;
+
+    catmullrom2_tangent(u, &spec->points[0], spec->npoints, &t2rs[0]);
+
+    //printf("spline t %f %f %f %f %f\n",u, curve_p[0], curve_p[1], t2rs[0], t2rs[1]);
+    fflush(stdout);
+    t2[0] = s1 * t2rs[0] * cos_theta ;
+    t2[1] = t2rs[1];
+    t2[2] = s2 * t2rs[0] * spec->squash*sin_theta;
+
+    float nn[3];
+    float n[3];
+    float rr[3];
+
+    cross_product(&t2[0],&t1[0],&nn[0]);
+    normalize(&nn[0],&n[0]);
+
+    cross_product(&t2[0],&n[0],&rr[0]);
+    normalize(rr,result);
+
+//    printf("norm %f %f %f %f  -- %f\n",u,n[0], n[1], n[2], norm(&n[0]) );
+}
+
+// this is the unfaceted surface only
+void mold_parting_norm_ray( float u, float l,float thickness, int quadrant  , pottoy_spec_t* spec, float* result) {
+
+    quadrant = (quadrant + 4)%4;
+    float s1=0; //= (quadrant & 1) ? -1.0 : 1.0 ;
+    float s2=0; //= (quadrant & 2) ? 1.0 : -1.0 ;
+
+    switch (quadrant) {
+        case 0:
+            s1 = 1.0;
+            s2 = 1.0;
+//            s1 = 1.0;
+ //           s2 = -1.0;
+            break;
+        case 1:
+            s1 = -1.0;
+            s2 = 1.0;
+
+            break;
+        case 2:
+            s1 = -1.0;
+            s2 = -1.0;
+
+            break;
+        case 3:
+            s1 = 1.0;
+            s2 = -1.0;
+            break;
+    }
 
     // on the surface, at points where the tangent plane makes a 45 degree angle with the x and y axes.
     float v1[3];
@@ -232,6 +440,12 @@ void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spe
     v2[0] = v1[0] + l*n[0];
     v2[1] = v1[1] + l*n[1];
     v2[2] = v1[2] + l*n[2];
+
+    v1[0] = v1[0] - thickness*n[0];
+    v1[1] = v1[1] - thickness*n[1];
+    v1[2] = v1[2] - thickness*n[2];
+
+
 
     result[0] = v1[0]; 
     result[1] = v1[1]; 
