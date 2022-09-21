@@ -7,6 +7,10 @@
 
 #include "frozen.h"
 #include "catmullrom.h"
+#include "vectorops.h"
+#include "triangles.h"
+
+
 
 
 void wrinkley(float* xyz, float* vtheta) {
@@ -108,7 +112,7 @@ void X(float* xyz, float* vtheta) {
 
 
 /*void spline_getPoint( float t, float* point,pottoy_spec_t*  spec ) {
-
+ 
 }*/
 
 void sor(float* xyz, float* uv, pottoy_spec_t* spec ) {
@@ -123,6 +127,118 @@ void sor(float* xyz, float* uv, pottoy_spec_t* spec ) {
     xyz[0] = r*cos( uv[1]* M_PI *2.0) ;
     xyz[1] = y;
     xyz[2] = spec->squash*r*sin( uv[1] * M_PI *2.0);
+
+}
+
+void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
+    float n[3];
+
+    triangle_normal(v1,v2,v3,&n[0]);
+
+	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	fprintf(fp,"    outer loop\n");
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
+
+	fprintf(fp,"    endloop\n");
+	fprintf(fp,"  endfacet\n");
+
+}
+
+void stl_printquad( float* ray1 , float* ray2 , FILE* fp ) {
+
+    stl_triangle( &ray1[0], &ray1[3], &ray2[0] ,fp );
+    stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp );
+
+}
+
+void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile) {
+    float ray1[6];
+    float ray2[6];
+
+    int n_segments = 25;
+    float delta_t = 1.0 / ((float) n_segments);
+    float t=0.0;
+
+    mold_parting_norm_ray( t, l , quadrant, spec, &ray1[0]);
+    for(int i=0; i<n_segments; i++) {
+        printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
+            ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
+
+        t += delta_t;
+
+        mold_parting_norm_ray( t, l , quadrant, spec, &ray2[0]);
+
+        stl_printquad( &ray1[0],&ray2[0],stlfile );
+        stl_printquad( &ray2[0],&ray1[0],stlfile );
+
+        memcpy( &ray1[0] , &ray2[0] , sizeof(float)*6 );
+    }
+}
+
+// this is the unfaceted surface only
+void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spec, float* result) {
+
+    float s1 = (quadrant & 1) ? 1.0 : -1.0 ;
+    float s2 = (quadrant & 2) ? 1.0 : -1.0 ;
+
+    // on the surface, at points where the tangent plane makes a 45 degree angle with the x and y axes.
+    float v1[3];
+
+    // standing out along the normal from v1 and v2
+    float v2[3];
+
+    float curve_p[2];
+
+//	spline_getPoint( uv[0], &point[0], spec );
+    catmullrom2(u,&spec->points[0], spec->npoints, &curve_p[0]);
+    
+	float r = curve_p[0];
+	float y = curve_p[1];
+
+    float b_squared = spec->squash*spec->squash;
+    float cos_theta = 1.0 / sqrt(1.0 + b_squared) ;
+    float sin_theta = spec->squash / sqrt(1.0 + b_squared) ;
+
+    v1[0] = s1 * r * cos_theta ;
+    v1[1] = y;
+    v1[2] = s2 * r * spec->squash*sin_theta;
+
+    //find the surface normal.
+    float t1[3];  // 45 degrees to x and y
+    float t2rs[2];  // along the spline
+    float t2[3];  // along the spline
+
+    t1[0] = -s2;
+    t1[1] =  0.0;
+    t1[2] =  s1;
+
+    catmullrom2_tangent(u, &spec->points[0], spec->npoints, &t2rs[0]);
+
+    //printf("spline t %f %f %f %f %f\n",u, curve_p[0], curve_p[1], t2rs[0], t2rs[1]);
+    fflush(stdout);
+    t2[0] = s1 * t2rs[0] * cos_theta ;
+    t2[1] = t2rs[1];
+    t2[2] = s2 * t2rs[0] * spec->squash*sin_theta;
+
+    float nn[3];
+    float n[3];
+
+    cross_product(&t2[0],&t1[0],&nn[0]);
+    normalize(&nn[0],&n[0]);
+    printf("norm %f %f %f %f  -- %f\n",u,n[0], n[1], n[2], norm(&n[0]) );
+
+    v2[0] = v1[0] + l*n[0];
+    v2[1] = v1[1] + l*n[1];
+    v2[2] = v1[2] + l*n[2];
+
+    result[0] = v1[0]; 
+    result[1] = v1[1]; 
+    result[2] = v1[2]; 
+    result[3] = v2[0]; 
+    result[4] = v2[1]; 
+    result[5] = v2[2]; 
 
 }
 

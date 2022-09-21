@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 typedef struct MeshTriangles
 {
 	int ntriangles;				
@@ -14,6 +16,12 @@ typedef struct MeshTriangles
 } MeshTriangles;
 
 
+typedef struct Plane {
+	float n[3];
+	float d;
+} Plane ; 
+
+
 MeshTriangles* parse_triangles(char* filename, float width) ;
 MeshTriangles* parse_triangles_internal(char* filename, float width,int with_normals, int reduplicate) ;
 MeshTriangles* parse_triangles_with_normals(char* filename, float width) ;
@@ -26,3 +34,14 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) ;
 
 void apply_interpolation_to_mesh( MeshTriangles* texture, MeshTriangles* mt , float zscale);
 void apply_transform_to_mesh(MeshTriangles*  texture,  void(*trnsfrm)(float*, float*) );
+
+float signed_distance_to_plane(float* a, Plane* p);
+bool segment_spans_plane( float* a, float* b, Plane* p );
+
+void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) ;
+
+bool triangle_spans_plane( float* a, float* b, float* c, Plane* p ) ;
+
+
+void segment_plane_intersection( float* a, float* b, float* q, Plane* p ) ;
+

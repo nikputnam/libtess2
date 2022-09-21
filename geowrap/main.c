@@ -84,6 +84,83 @@ void transform(float* xprime, float *x) {
 	//xprime[1] = ( x[2] / cone.w ) * cone.foot;
 }
 
+//void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) {
+
+void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) ;
+
+void printf_triangle(float* x) {
+    printf("t: %.2f %.2f %.2f ; %.2f %.2f %.2f ; %.2f %.2f %.2f \n", x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8] );
+}
+
+#define TBUFF_SIZE 3*3*32
+void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
+         Plane* rs_planes, int n_rs_planes, 
+         Plane* xyz_planes, int n_xyz_planes         
+         ) {
+    float triangles[ TBUFF_SIZE ];
+    float triangles2[ TBUFF_SIZE ];
+    int nt=1;
+    int ti=0;
+
+    int nt2=0;
+    int ti2=0;
+
+    set( &triangles[0], z1 );
+    set( &triangles[3], z2 );
+    set( &triangles[6], z3 );
+    //printf("clip triangle\n ");
+
+    while(ti<nt) {
+        int nr = 1;
+        int nt0 = nt;
+        for(int pi=0;pi<n_rs_planes;pi++) {
+            int tr = 0; 
+            clip_triangle( &triangles[ ti*9 ] , &triangles[ ti*9 +3], &triangles[ ti*9 +6], 
+            &triangles[ nt*9 ], &rs_planes[pi], &tr );
+            nr *= tr;
+            if (tr>1) { nt++; printf("nt=%d\n",nt);
+             assert(nt*9<TBUFF_SIZE);} 
+        }
+        if (nr>0) {
+            //print_triangle( &triangles[ ti*9 ] , &triangles[ ti*9 +3], &triangles[ ti*9 +6], fp );
+
+            transform( &triangles2[nt2*9] , &triangles[ ti*9 ]);
+            transform( &triangles2[nt2*9+3] , &triangles[ ti*9 +3]);
+            transform( &triangles2[nt2*9+6] , &triangles[ ti*9 +6]);
+            nt2++;
+        } 
+
+        ti++;
+    }
+
+    while(ti2<nt2) {
+        int nr = 1;
+        int nt20 = nt2;
+        for(int pi=0;pi<n_xyz_planes;pi++) {
+            printf("clip with xyzplane ");
+            printf_triangle(&triangles2[ ti2*9 ]);
+            int tr = 0; 
+            clip_triangle( &triangles2[ ti2*9 ] , &triangles2[ ti2*9 +3], &triangles2[ ti2*9 +6], 
+            &triangles2[ nt2*9 ], &xyz_planes[pi], &tr );
+            nr *= tr;
+            if (tr>1) { 
+                printf_triangle(&triangles2[ nt2*9 ]);
+            nt2++; printf("nt=%d\n",nt);
+             assert(nt*9<TBUFF_SIZE);} 
+        }
+        if (nr>0) {
+            stl_triangle( &triangles2[ ti2*9 ] , &triangles2[ ti2*9 +3], &triangles2[ ti2*9 +6], fp );
+
+        } 
+
+        ti2++;
+    }
+
+
+
+    //printf("       done clip triangle\n ");
+
+}
 
 void print_triangle_bbox( float* z1, float* z2, float* z3 , FILE* fp, float* bbox) {
 
@@ -177,6 +254,8 @@ int main(int argc, char *argv[])
 	int n_sectors = 90;
 	int n_levels = 50;
 
+
+
     if (!( argc==3 || argc==6)) {
         printf("usage: geowrap <input.json> <output.obj>\n");
         printf("usage: geowrap <texture_geometry.obj> <input-lscm.obj> <out.stl> <surf.json> <width>\n"); //<input.json> <output.obj>\n");
@@ -186,6 +265,22 @@ int main(int argc, char *argv[])
     if (argc==3) {
 		printf("read spec & write obj.\n");
 		read_spec(argv[1], &spec );
+
+        if (0) {
+
+            float a[3] = {1,1,0};
+            float b[3] = {4,2,0};
+            float c[3] = {2,4,0};
+
+            Plane clip_planes[2];
+            clip_planes[0] = (Plane){ {0,-1,0}, 3.0 };
+            clip_planes[1] = (Plane){ {-1,0,0}, 1.0 };
+
+            //print_triangle_clipped( a,b,c, stdout, clip_planes, 1);
+
+            exit(0);
+
+        }
 
 		float bbox[6];
 		surface_obj_bbox(&bbox[0], &spec) ;
@@ -233,6 +328,22 @@ int main(int argc, char *argv[])
         //write_to_stl(texture,stlfile);
 
 
+
+        float mins = atan( spec.squash)/(2.0*M_PI) ;
+        float maxs = 0.5- (atan( spec.squash ) / (2.0*M_PI));
+        printf("atan thing = %f\n", -mins  );
+        printf("atan thing = %f\n", maxs  );
+
+        Plane clip_rs_planes[3];
+        clip_rs_planes[0] = (Plane){ {0,  1, 0}, -mins };
+        clip_rs_planes[1] = (Plane){ {0, -1, 0},  maxs  };
+//        clip_rs_planes[2] = (Plane){ {0,  0, 1},  0  };
+
+        Plane clip_xyz_planes[2];
+        clip_xyz_planes[0] = (Plane){ {0,1,0}, 0.0 };
+        clip_xyz_planes[1] = (Plane){ {0,-1,0}, bbox[4] };
+        
+
         for (int i=0; i<texture->ntriangles; i++) {
             //printf("mt path %d\n",i);
             int n1 = texture->triangles[3*i];
@@ -253,13 +364,16 @@ int main(int argc, char *argv[])
 //            assert( texture->nxpoints < n1 );
 //            float v2[3] = { texture->paths[i*6+2] ,texture->paths[i*6+3] , 0.1 };
 //            float v3[3] = { texture->paths[i*6+4] ,texture->paths[i*6+5] , 0.1 };
-            print_triangle_bbox(v1,v2,v3, stlfile, bbox);
+
+            print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2);
+//            print_triangle_bbox(v1,v2,v3, stlfile, bbox);
         }
 
 
         fflush( stlfile );
         printf("done writing triangles for texture\n");
         fflush(stdout);
+
 
         // print out the shell of the surface itself -- outside
         for (int i=0; i<mt->npaths; i++) {
@@ -268,9 +382,15 @@ int main(int argc, char *argv[])
             float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , -0.1 };
             float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] , -0.1 };
             float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] , -0.1 };
-            print_triangle(v1,v2,v3, stlfile);
-        }
+            //print_triangle(v1,v2,v3, stlfile);
+            print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0);
 
+        }
+        
+        write_parting_sufrace_stl( 0, 200.0 , &spec,  stlfile); 
+        write_parting_sufrace_stl( 1, 200.0 , &spec,  stlfile); 
+        write_parting_sufrace_stl( 2, 200.0 , &spec,  stlfile); 
+        write_parting_sufrace_stl( 3, 200.0 , &spec,  stlfile); 
 
 	fprintf(stlfile, "endsolid x\n");
     fclose(stlfile);

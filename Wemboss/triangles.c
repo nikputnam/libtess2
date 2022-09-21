@@ -26,6 +26,7 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
 	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
 	if (l==0.0) { 
+        printf("zero area triangle?\n");
 		n[0]=0.0;
 		n[1]=0.0;
 		n[2]=0.0;
@@ -379,14 +380,6 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
 }
 
 
-float dot2(float* x, float* y){
-    return (x[0]*y[0] + x[1]*y[1]);
-}
-
-void diff(float* x, float* y, float* z) {
-    z[0] = x[0]-y[0];
-    z[1] = x[1]-y[1];
-}
 
 float min(float a, float b, float c  ) {
     if (a<=b && a<=c) {return a;} 
@@ -498,4 +491,141 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
     return;
     
 
+}
+
+
+
+void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) {
+	float da = signed_distance_to_plane(a,p);
+	float db = signed_distance_to_plane(b,p);
+	float dc = signed_distance_to_plane(c,p);
+	if (da>=0.0 && db>=0.0 && dc>=0.0) { *nt = 1; return; }
+	if (da<=0.0 && db<=0.0 && dc<=0.0) { *nt = 0; return; }
+	
+	if (da>0.0 && db<=0.0 && dc<=0.0 ) {   // only a survives;  
+		segment_plane_intersection(a,b,b,p);  // replace b with ab-plane intersection 
+		segment_plane_intersection(a,c,c,p);  // replace c with ac-plane intersection 
+		*nt = 1; 
+		return; 
+	}
+
+	if (db>0.0 && da<=0.0 && dc<=0.0 ) {   // only b survives;  
+		segment_plane_intersection(a,b,a,p);  // replace a with ab-plane intersection 
+		segment_plane_intersection(b,c,c,p);  // replace c with bc-plane intersection 
+		*nt = 1; 
+		return; 
+	}
+
+	if (dc>0.0 && da<=0.0 && db<=0.0 ) {   // only c survives;  
+		segment_plane_intersection(a,c,a,p);  // replace a with ab-plane intersection 
+		segment_plane_intersection(b,c,b,p);  // replace b with bc-plane intersection 
+		*nt = 1; 
+		return; 
+	}
+
+
+	if (da<0.0 && db>=0.0 && dc>=0.0 ) {   // only a rejected; 
+    printf("a rejected\n"); 
+        float a0[3];
+        set(&a0[0],a);
+		segment_plane_intersection(a,b,a,p);  // replace b with ab-plane intersection 
+
+		segment_plane_intersection(a0,c,d,p);  // replace c with ac-plane intersection 
+		set(&d[3],a);
+		set(&d[6],c);
+
+		*nt = 2; 
+		return; 
+	}
+
+
+	if (dc<0.0 && da>=0.0 && db>=0.0 ) {   // only c rejected;  
+        printf("c rejected\n"); 
+
+        float c0[3];
+        set(c0,c);
+//        printf("copy of c= %.2f %.2f %.2f\n",c0[0],c0[1],c0[2]);
+		segment_plane_intersection(c,b,c,p);  // replace c with cb-plane intersection 
+
+//        printf("new vertex1 %.2f %.2f %.2f between (%.2f %.2f %.2f) and (%.2f %.2f %.2f)\n", c[0], c[1], c[2],
+//        c0[0], c0[1], c0[2],b[0], b[1], b[2]
+ //       );
+
+		segment_plane_intersection(c0,a,d,p);  // replace c with cb-plane intersection 
+   //     printf("new vertex2 %.2f %.2f %.2f between (%.2f %.2f %.2f) and (%.2f %.2f %.2f)\n", d[0], d[1], d[2],
+   //     c0[0], c0[1], c0[2],a[0], a[1], a[2]
+    //    );
+		set(&d[3],a);
+		set(&d[6],c);
+
+		*nt = 2; 
+		return; 
+	}
+
+	if (db<0.0 && da>=0.0 && dc>=0.0 ) {   // only b rejected;  
+        printf("b rejected\n"); 
+
+        float b0[3];
+        set(&b0[0],b);
+
+		segment_plane_intersection(a,b,b,p);  // replace c with cb-plane intersection 
+
+		segment_plane_intersection(b0,c,d,p);  // replace c with cb-plane intersection 
+		set(&d[3],c);
+		set(&d[6],b);
+
+		*nt = 2; 
+		return; 	
+	}
+
+}
+
+
+bool triangle_spans_plane( float* a, float* b, float* c, Plane* p ) {
+	if ( segment_spans_plane(a,b,p) ) {return true;}
+	if ( segment_spans_plane(b,c,p) ) {return true;}
+	if ( segment_spans_plane(c,a,p) ) {return true;}
+	if ((signed_distance_to_plane(a,p) > 0.0) && (signed_distance_to_plane(b,p) < 0.0)) {return true;}
+	return false;
+}
+
+void segment_plane_intersection( float* a, float* b, float* q, Plane* p ) {
+    
+
+//    printf("find segment intersection on (%.2f %.2f %.2f) - (%.2f %.2f %.2f)\n", 
+//        a[0], a[1], a[2],b[0], b[1], b[2]
+//    );
+
+
+	float v[3];
+	subtract(v,b,a);  // v = b-a
+
+//    printf("difference vector = (%.2f %.2f %.2f) \n", 
+//       v[0], v[1], v[2]
+//    );
+
+	float t = (-p->d - dot( a , &p->n[0] )) / dot( v, &p->n[0] ) ;
+  //  printf("t=%f\n",t);
+	q[0] = a[0] + t*v[0];
+	q[1] = a[1] + t*v[1];
+	q[2] = a[2] + t*v[2];
+
+    //    printf("result = (%.2f %.2f %.2f) \n",  q[0],q[1],q[2]);
+
+
+//    printf("find segment intersection on (%.2f %.2f %.2f) - (%.2f %.2f %.2f)\n", 
+//        a[0], a[1], a[2],b[0], b[1], b[2]
+//    );
+
+}
+
+
+bool segment_spans_plane( float* a, float* b, Plane* p ) {
+	if ((signed_distance_to_plane(a,p) < 0.0) && (signed_distance_to_plane(b,p) > 0.0)) {return true;}
+	if ((signed_distance_to_plane(a,p) > 0.0) && (signed_distance_to_plane(b,p) < 0.0)) {return true;}
+	return false;
+}
+
+float signed_distance_to_plane(float* a, Plane* p) {
+	return (dot(a,&(p->n[0]))+ p->d);
 }

@@ -224,6 +224,52 @@ void transform(float* xprime, float *x) {
 	//xprime[1] = ( x[2] / cone.w ) * cone.foot;
 }
 
+void triangle_normal(float* v1, float* v2, float* v3, float *n) {
+
+	float a[3];
+	float b[3];
+
+	a[0] = v2[0] - v1[0];
+	a[1] = v2[1] - v1[1];
+	a[2] = v2[2] - v1[2];
+
+	b[0] = v3[0] - v1[0];
+	b[1] = v3[1] - v1[1];
+	b[2] = v3[2] - v1[2];
+
+	cross_product( &a[0], &b[0], &n[0] );
+
+	float l = sqrt( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] );
+	if (l==0.0) { 
+		n[0]=0.0;
+		n[1]=0.0;
+		n[2]=0.0;
+		return;
+	}
+	n[0] /= l;
+	n[1] /= l;
+	n[2] /= l;
+}
+
+
+void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) {
+
+
+	float n[3];
+	triangle_normal(v1,v2,v3,&n[0]);
+
+	//printf("  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	//fprintf(fp,"  facet normal %f %f %f\n", 0.0,0.0,0.0);
+    fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
+	fprintf(fp,"    outer loop\n");
+	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
+	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],v3[1],v3[2]);
+	fprintf(fp,"    endloop\n");
+	fprintf(fp,"  endfacet\n");
+
+
+}
 
 void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 

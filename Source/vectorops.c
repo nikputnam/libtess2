@@ -54,6 +54,13 @@ void set2(float* r, float* a) {
 	r[1] = a[1] ;
 }
 
+void set(float* r, float* a) {
+	r[0] = a[0] ;
+	r[1] = a[1] ;
+	r[2] = a[2] ;
+}
+
+
 float norm22(float* n) {	return ( n[0]*n[0]+n[1]*n[1] );}
 
 float dist22(float* a, float* b) {	
@@ -68,4 +75,23 @@ float dist2(float* a, float* b) {
 void weighted_sum2(float* r, float w1, float w2, float* v1, float* v2) {	
     r[0] = w1*v1[0] + w2*v2[0];
     r[1] = w1*v1[1] + w2*v2[1];
+}
+
+void weighted_sum2_4(float* r, float w1, float w2, float w3, float w4, float* v1, float* v2, float* v3, float* v4) {	
+    r[0] = w1*v1[0] + w2*v2[0] + w3*v3[0] + w4*v4[0] ;
+    r[1] = w1*v1[1] + w2*v2[1] + w3*v3[1] + w4*v4[1];
+}
+
+
+float dot2(float* x, float* y){
+    return (x[0]*y[0] + x[1]*y[1]);
+}
+
+void diff(float* x, float* y, float* z) {
+    z[0] = x[0]-y[0];
+    z[1] = x[1]-y[1];
+}
+
+float dot(float* x, float* y) {
+	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
 }
