@@ -335,6 +335,19 @@ int main(int argc, char *argv[])
         //apply_transform_to_mesh( texture, transf_X );
         //write_to_stl(texture,stlfile);
 
+            float offset_size = 35.0;
+            float thickness = 15.0;
+            float angle_pad = 0.005;
+
+
+        float offsets[15] = {
+            offset_size,0,0,
+            0,0,offset_size,
+            -offset_size,0,0,
+            0,0,-offset_size,
+            offset_size,0,0
+        };
+
 //        for(int quadrant=1; quadrant<2; quadrant++ ) {
         for(int quadrant=0; quadrant<5; quadrant++ ) {
 
@@ -342,37 +355,36 @@ int main(int argc, char *argv[])
             float mins = 0; //= atan( spec.squash)/(2.0*M_PI) ;
             float maxs = 0; // = 0.5- (atan( spec.squash ) / (2.0*M_PI));
 
-            float offset_size = 25.0;
-            float thickness = 10.0;
-            float angle_pad = 0.005;
+
+            set(offset, &offsets[quadrant*3] );
 
             switch (quadrant) {
                 case 0:
-                    set(offset, (float[3]) { offset_size,0,0 });
+                    //set(offset, (float[3]) { offset_size,0,0 });
                     mins = 0.0 - (atan( spec.squash ) / (2.0*M_PI)) - angle_pad;
                     maxs = 0.0 + (atan( spec.squash)/(2.0*M_PI)) + angle_pad ;
 
                     break;
                 case 1:
-                    set(offset, (float[3]) { 0, 0,offset_size });
+                    //set(offset, (float[3]) { 0, 0,offset_size });
                     mins = atan( spec.squash)/(2.0*M_PI) - angle_pad;
                     maxs = 0.5 - (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
 
                     break;
                 case 2:
-                    set(offset, (float[3]) { -offset_size,0,0 });
+                    //set(offset, (float[3]) { -offset_size,0,0 });
                     mins = 0.5 - (atan( spec.squash ) / (2.0*M_PI))  - angle_pad; // atan( spec.squash)/(2.0*M_PI) ;
                     maxs = 0.5 + (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
 
                     break;
                 case 3:
-                    set(offset, (float[3]) { 0,0,-offset_size });
+                    //set(offset, (float[3]) { 0,0,-offset_size });
                     mins = 0.5 + (atan( spec.squash ) / (2.0*M_PI)) - angle_pad; // atan( spec.squash)/(2.0*M_PI) ;
                     maxs = 1.0 - (atan( spec.squash ) / (2.0*M_PI)) + angle_pad;
 
                     break;
                 case 4:
-                    set(offset, (float[3]) { offset_size,0,0 });
+                    //set(offset, (float[3]) { offset_size,0,0 });
                     mins = 1.0 - (atan( spec.squash ) / (2.0*M_PI)) - angle_pad;
                     maxs = 1.0 + (atan( spec.squash)/(2.0*M_PI))  + angle_pad;
 
@@ -416,7 +428,7 @@ int main(int argc, char *argv[])
     //            float v3[3] = { texture->paths[i*6+4] ,texture->paths[i*6+5] , 0.1 };
 
               print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 3, clip_xyz_planes, 2,offset);
-//                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2,offset); //2 omits inside clip
+              //  print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2,&offsets[quadrant*3]); //2 omits inside clip
     //            print_triangle_bbox(v1,v2,v3, stlfile, bbox);
             }
 
@@ -426,36 +438,27 @@ int main(int argc, char *argv[])
 
             if (quadrant>=4) {continue;}
 
-            //if (quadrant==1) {
-                write_surface_stl( &transform, stlfile, mins, maxs, thickness,offset );
-            //}
-            /*
-            // print out the shell of the surface itself -- outside
-            for (int i=0; i<mt->npaths; i++) {
-                //printf("mt path %d\n",i);
-                //tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
-                float v1[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , 0.1 };
-                float v2[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] , 0.1 };
-                float v3[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] , 0.1 };
-                //print_triangle(v1,v2,v3, stlfile);
-                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0, offset);
+            float length = 200.0;
+            write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
+
+          //  if (quadrant==1) {
+                write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 0 ,0);
+                
+                // too overhanging for 3d print?
+//                write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 1 ,1);
+         //   }
+ 
+            write_parting_sufrace_stl( quadrant,   length , &spec,  stlfile, &offsets[quadrant*3], thickness, 0); 
+            write_parting_sufrace_stl( quadrant-1, length , &spec,  stlfile, &offsets[quadrant*3], thickness, 1); 
 
 
-                float v1a[3] = { mt->paths[i*6+0] ,mt->paths[i*6+1] , -thickness };
-                float v2a[3] = { mt->paths[i*6+2] ,mt->paths[i*6+3] ,  -thickness};
-                float v3a[3] = { mt->paths[i*6+4] ,mt->paths[i*6+5] ,  -thickness };
-                //print_triangle(v1,v2,v3, stlfile);
-                print_triangle_clipped(v1a,v3a,v2a, stlfile, clip_rs_planes, 2, clip_xyz_planes, 0, offset);
-
-            }
-            */
-            
-            write_parting_sufrace_stl( quadrant, 200.0 , &spec,  stlfile, offset, thickness, 0); 
-            write_parting_sufrace_stl( quadrant-1, 200.0 , &spec,  stlfile, offset, thickness, 1); 
-//            write_parting_sufrace_stl( 1, 200.0 , &spec,  stlfile, offset); 
-//            write_parting_sufrace_stl( 2, 200.0 , &spec,  stlfile, offset); 
-//            write_parting_sufrace_stl( 3, 200.0 , &spec,  stlfile, offset); 
-
+            //if (quadrant==2) {
+//                write_support_ties_stl(&spec, quadrant, (quadrant-1+4)%4, &offsets[quadrant], 
+//                &offsets[(quadrant-1+4)%4], length, thickness, stlfile );
+                write_support_ties_stl(&spec, quadrant, quadrant, //(quadrant+1)%4
+                &offsets[3* quadrant ], 
+                &offsets[3* ((quadrant+1)%4)], length, thickness, stlfile );
+           // }
         }
 
 	fprintf(stlfile, "endsolid x\n");

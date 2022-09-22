@@ -15,6 +15,8 @@ void set2(float* r, float* a) ;
 
 void set(float* r, float* a) ;
 
+void weighted_sum3(float* r, float w1, float w2, float* v1, float* v2);
+
 void weighted_sum2(float* r, float w1, float w2, float* v1, float* v2) ;	
 void weighted_sum2_4(float* r, float w1, float w2, float w3, float w4, float* v1, float* v2, float* v3, float* v4) ;	
 

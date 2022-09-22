@@ -158,6 +158,122 @@ void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
 }
 void mold_parting_surface_norm(float u, int quadrant, pottoy_spec_t* spec, float* result) ;
 
+void stl_cuboid(float* c, FILE* stlfile) {
+
+    stl_triangle( &c[0],  &c[6] , &c[3] ,stlfile );  //edge of the thing
+    stl_triangle( &c[6],  &c[9] , &c[3] ,stlfile );  //edge of the thing
+
+    stl_triangle( &c[12],  &c[15] , &c[18] ,stlfile );  //edge of the thing
+    stl_triangle( &c[15],  &c[21] , &c[18] ,stlfile );  //edge of the thing
+
+    stl_triangle( &c[0],  &c[12] , &c[6] ,stlfile );  //edge of the thing
+    stl_triangle( &c[6],  &c[12] , &c[18] ,stlfile );  //edge of the thing
+
+    stl_triangle( &c[3],  &c[9] , &c[15] ,stlfile );  //edge of the thing
+    stl_triangle( &c[15],  &c[9] , &c[21] ,stlfile );  //edge of the thing
+
+    stl_triangle( &c[3],  &c[15] , &c[0] ,stlfile );  //edge of the thing
+    stl_triangle( &c[0],  &c[15] , &c[12] ,stlfile );  //edge of the thing
+
+    stl_triangle( &c[6],  &c[18] , &c[9] ,stlfile );  //edge of the thing
+    stl_triangle( &c[9],  &c[18] , &c[21] ,stlfile );  //edge of the thing
+
+
+//    stl_triangle( &c[12],  &c[6] , &c[15] ,stlfile );  //edge of the thing
+
+
+ //   stl_triangle( &c[0],  &c[6] , &c[3] ,stlfile );  //edge of the thing
+    //stl_triangle( &c[0],  &c[3] , &c[6] ,stlfile );  //edge of the thing
+    //stl_triangle( &c[0],  &c[3] , &c[6] ,stlfile );  //edge of the thing
+
+}
+
+void write_support_ties_stl(
+    pottoy_spec_t* spec,
+    int quadrant1, int quadrant2, float* offset1, 
+        float* offset2, float length, float thickness, FILE* stlfile ) {
+
+    int n_levels = 20;
+    int n_per_level = 4;
+
+    float th = 0.025;
+    float wi = 0.0025;
+
+    float ray1[6];
+    float ray2[6];
+
+    float ray3[6];
+    float ray4[6];
+
+    float cuboid[24];
+
+    float delta_t = 1.0/((float) n_levels);
+
+    for (int j=0; j<n_per_level; j++) { 
+        float r_fact = ((float) j) / ((float)(n_per_level + 1));
+    for( int i = 0; i<n_levels; i++ ) {
+        float t = i*delta_t;
+
+        mold_parting_norm_ray( t, length , thickness, quadrant1, spec, &ray1[0]);
+        add(ray1,ray1,offset1);
+        add(&ray1[3],&ray1[3],offset1);
+
+        mold_parting_norm_ray( t, length , thickness, quadrant2, spec, &ray2[0]);
+        add(ray2,     ray2,   offset2);
+        add(&ray2[3],&ray2[3],offset2);
+
+        mold_parting_norm_ray( t+wi, length , thickness, quadrant1, spec, &ray3[0]);
+        add(ray3,ray3,offset1);
+        add(&ray3[3],&ray3[3],offset1);
+
+        mold_parting_norm_ray( t+wi, length , thickness, quadrant2, spec, &ray4[0]);
+        add(ray4,ray4,offset2);
+        add(&ray4[3],&ray4[3],offset2);
+
+//        set(           &cuboid[0], &ray1[3] );
+        weighted_sum3( &cuboid[0], (1-r_fact), r_fact, &ray1[3], &ray1[0] );
+
+//        set(           &cuboid[3], &ray3[3] );
+        weighted_sum3( &cuboid[3], (1-r_fact-th), r_fact+th, &ray1[3], &ray1[0] );
+
+        //set(           &cuboid[6], &ray2[3] );
+        weighted_sum3( &cuboid[6], (1-r_fact), r_fact, &ray2[3], &ray2[0] );
+
+        weighted_sum3( &cuboid[9], (1-r_fact-th), r_fact+th, &ray2[3], &ray2[0] );
+
+        //set(           &cuboid[12], &ray3[3] );
+        weighted_sum3( &cuboid[12], (1-r_fact), r_fact, &ray3[3], &ray3[0] );
+        weighted_sum3( &cuboid[15], (1-r_fact-th), r_fact+th, &ray3[3], &ray3[0] );
+        //set(           &cuboid[18], &ray4[3] );
+        weighted_sum3( &cuboid[18], (1-r_fact), r_fact, &ray4[3], &ray4[0] );
+        weighted_sum3( &cuboid[21], (1-r_fact-th), r_fact+th, &ray4[3], &ray4[0] );
+
+
+        stl_cuboid( cuboid, stlfile );
+//        stl_triangle( &ray1[3],  &ray2[0] , &ray2[0] ,stlfile );  //edge of the thing
+
+        //mold_parting_norm_ray( t, length , thickness, quadrant, spec, &ray1[0]);
+    }}
+
+}
+
+/*
+void write_support_ties_stl(int quadrant, float length, float* offset, float thickness,FILE* stlfile ) {
+
+    int n_levels = 10;
+    int n_per_level = 4;
+
+    float ray1[6];
+    float delta_t = 1.0/((float) n_levels);
+
+    for( int i = 0; i<n_levels; i++ ) {
+        float t = i*delta_t;
+
+        //mold_parting_norm_ray( t, length , thickness, quadrant, spec, &ray1[0]);
+    }
+
+}
+*/
 
 void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
       float thickness, int reverse) {
@@ -183,8 +299,8 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 
 
     for(int i=0; i<n_segments; i++) {
-        printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
-            ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
+       // printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
+        //    ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
 
         t += delta_t;
 
@@ -227,6 +343,162 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
         memcpy( &ray1_back[0] , &ray2_back[0] , sizeof(float)*6 );
     }
 }
+
+
+void xz_project_unit( float* xyz ) {
+    xyz[1]=0.0;
+    normalize(xyz,xyz);
+}
+
+void unfaceted_surface_norm( float t, float s, pottoy_spec_t* spec, float* result ) {
+
+  //  float curve_p[2];
+  //  catmullrom2(u,&spec->points[0], spec->npoints, &curve_p[0]);
+
+
+    double theta = s* 2.0*M_PI ;
+    double cos_theta=cos(theta);
+    double sin_theta=sin(theta);
+
+    float t1[3];  // 45 degrees to x and y
+    float t2rs[2];  // along the spline
+    float t2[3];  // along the spline
+
+
+
+    t1[0] = -sin_theta  ;
+    t1[1] =  0.0;
+    t1[2] =  spec->squash*cos_theta;
+
+    catmullrom2_tangent(t, &spec->points[0], spec->npoints, &t2rs[0]);
+
+    t2[0] = t2rs[0] * cos_theta ;
+    t2[1] = t2rs[1];
+    t2[2] = t2rs[0] * spec->squash*sin_theta;
+
+    float nn[3];
+//    float n[3];
+
+    cross_product(&t2[0],&t1[0],&nn[0]);
+    normalize(&nn[0],result);
+
+}
+
+
+void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,
+    float mins, float maxs ,float length, float thickness, float* offset, float t, int top) {
+
+    int n_s_segments = 50;
+    float s=mins;
+    float delta_s = (maxs-mins)/((float) n_s_segments );
+
+    //for (int i=0;i<n_s_segments;i++) {
+
+        float x[24];  // a cube of coordinates
+        float z[24];  // a cube of coordinates
+
+        float nv[6];
+
+//        float t =0.0;
+
+        for(int n=0; n<n_s_segments;n++) {
+            printf("floor flange segment %d %f - %f;  %f %f\n",n,mins,maxs, mins + (n)*delta_s,t);
+            //for(int i=0;i<=1;i++) {
+                int i=0;
+                for(int j=0;j<=1;j++) {
+                    for(int k=0;k<=1;k++) {
+                        x[  12*i + 6*j + 3*k +0 ] = t +  (top?1.0:-1.0)*((float)j)*thickness ;
+                        x[  12*i + 6*j + 3*k +1 ] = mins + (n+k)*delta_s ;
+                        x[  12*i + 6*j + 3*k +2 ] = 0.0 ; //(((float)j))*length;
+                     printf("x[%d] %f %d %d %d %d %f\n",12*i + 6*j + 3*k +2, x[  12*i + 6*j + 3*k +2 ] ,i,j,k,n,delta_s);
+                     printf("%f %f %f\n",x[  12*i + 6*j + 3*k +0 ] ,x[  12*i + 6*j + 3*k +1 ] ,x[  12*i + 6*j + 3*k +2 ] );
+                    }
+                }
+            //}
+
+            for(int j=0;j<=1;j++) {
+                unfaceted_surface_norm(  t  , mins + (n+j)*delta_s , spec, &nv[j*3] );
+                xz_project_unit( &nv[j*3] );
+                scale(&nv[j*3], length );
+            }
+
+
+            for(int i=0;i<4;i++) {
+                faceted_X(&z[3*i],&x[3*i], spec ) ;
+//                trnsfrm(&z[3*i],&x[3*i] ) ;
+                add(&z[3*i],&z[3*i],offset);
+                add( &z[12+ 3*i], &z[3*i], &nv[ 3*(i%2) ] );
+            }
+
+            if (top) {
+                stl_triangle( &z[ 0 ], &z[12], &z[3] ,stlfile );  
+                stl_triangle( &z[ 3 ], &z[12], &z[15] ,stlfile );  
+
+                stl_triangle( &z[ 6 ], &z[9], &z[18] ,stlfile );  
+                stl_triangle( &z[ 9 ], &z[21], &z[18] ,stlfile );  
+
+                stl_triangle( &z[ 12 ], &z[18], &z[15] ,stlfile );  
+                stl_triangle( &z[ 18 ], &z[21], &z[15] ,stlfile );  
+
+                stl_triangle( &z[ 0 ], &z[3], &z[6] ,stlfile );  
+                stl_triangle( &z[ 6 ], &z[3], &z[9] ,stlfile );  
+
+                if (n==0) {
+                    stl_triangle( &z[ 0 ], &z[6], &z[12] ,stlfile );  
+                    stl_triangle( &z[ 6 ], &z[18], &z[12] ,stlfile );  
+                }
+
+                if (n==n_s_segments-1) {
+                    printf("endcap\n");
+                    stl_triangle( &z[ 3 ], &z[15], &z[9] ,stlfile );  
+                    stl_triangle( &z[ 9 ], &z[15], &z[21] ,stlfile );  
+
+                }
+
+            } else {
+                stl_triangle( &z[ 0 ], &z[3], &z[12] ,stlfile );  
+                stl_triangle( &z[ 12 ], &z[3], &z[15] ,stlfile );  
+
+                stl_triangle( &z[ 6 ], &z[18], &z[9] ,stlfile );  
+                stl_triangle( &z[ 9 ], &z[18], &z[21] ,stlfile );  
+
+                stl_triangle( &z[ 12 ], &z[15], &z[18] ,stlfile );  
+                stl_triangle( &z[ 18 ], &z[15], &z[21] ,stlfile );  
+
+                stl_triangle( &z[ 0 ], &z[6], &z[3] ,stlfile );  
+                stl_triangle( &z[ 6 ], &z[9], &z[3] ,stlfile );  
+
+                if (n==0) {
+                    stl_triangle( &z[ 0 ], &z[12], &z[6] ,stlfile );  
+                    stl_triangle( &z[ 6 ], &z[12], &z[18] ,stlfile );  
+                }
+
+                if (n==n_s_segments-1) {
+                    printf("endcap\n");
+                    stl_triangle( &z[ 3 ], &z[9], &z[15] ,stlfile );  
+                    stl_triangle( &z[ 9 ], &z[21], &z[15] ,stlfile );  
+
+                }
+
+
+            }
+/*
+            printf("triangle",z[0],z[1],z[2]);
+            stl_printquad( &z[6] , &z[0], stlfile, 0 ) ;
+            stl_printquad( &z[12] , &z[18], stlfile, 0 ) ;
+
+            stl_triangle( &z[ 0 ], &z[3], &z[12] ,stlfile );  //edge of the thing
+            stl_triangle( &z[ 12 ], &z[3], &z[15] ,stlfile );  //edge of the thing
+
+            stl_triangle( &z[ 6 ], &z[18], &z[9] ,stlfile );  //edge of the thing
+            stl_triangle( &z[ 18 ], &z[21], &z[9] ,stlfile );  //edge of the thing
+            */
+
+        }
+
+
+}
+
 
 void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs , float thickness, float* offset) {
 
@@ -360,6 +632,7 @@ void mold_parting_surface_norm(float u, int quadrant, pottoy_spec_t* spec, float
 
 //    printf("norm %f %f %f %f  -- %f\n",u,n[0], n[1], n[2], norm(&n[0]) );
 }
+
 
 // this is the unfaceted surface only
 void mold_parting_norm_ray( float u, float l,float thickness, int quadrant  , pottoy_spec_t* spec, float* result) {

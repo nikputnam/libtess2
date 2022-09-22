@@ -16,7 +16,6 @@ void normalize(float* n, float* r) {
 	r[1] = n[1] / nn ;
 	r[2] = n[2] / nn ;
 
-
 	//if (isnan(r[0])) {printf("is nan\n");}
 
 }
@@ -79,6 +78,11 @@ float dist2(float* a, float* b) {
     return sqrt( (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) );
 }
 
+void weighted_sum3(float* r, float w1, float w2, float* v1, float* v2) {	
+    r[0] = w1*v1[0] + w2*v2[0];
+    r[1] = w1*v1[1] + w2*v2[1];
+    r[2] = w1*v1[2] + w2*v2[2];
+}
 
 void weighted_sum2(float* r, float w1, float w2, float* v1, float* v2) {	
     r[0] = w1*v1[0] + w2*v2[0];

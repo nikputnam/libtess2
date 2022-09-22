@@ -57,3 +57,11 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) ;
 
 void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs, float thickness , float* offset) ;
+void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,float mins, float maxs ,float length, float thickness, float* offset,
+ float t, int top) ;
+
+
+void write_support_ties_stl(
+    pottoy_spec_t* spec,
+    int quadrant1, int quadrant2, float* offsets1, 
+        float* offsets2, float length, float thickness, FILE* stlfile ) ;
