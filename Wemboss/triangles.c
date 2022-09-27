@@ -120,6 +120,16 @@ MeshTriangles* parse_triangles_with_normals(char* filename, float width) {
     return parse_triangles_internal( filename, width, 1, 0 );
 }
 
+void free_meshtriangles( MeshTriangles* mt ) {
+    free(mt->points);
+    free(mt->tpoints);
+    free(mt->xpoints);
+    free(mt->triangles);
+    free(mt->ttriangles);
+    free(mt->paths); 
+    free(mt);
+}
+
 MeshTriangles* parse_triangles_internal(char* filename, float width, int with_normals, int reduplicate) {
 
     MeshTriangles* mt = malloc(sizeof(MeshTriangles));
@@ -495,7 +505,8 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
 
 
 
-void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) {
+void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt, int* altered ) {
+    *altered=0;
 	float da = signed_distance_to_plane(a,p);
 	float db = signed_distance_to_plane(b,p);
 	float dc = signed_distance_to_plane(c,p);
@@ -506,6 +517,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 		segment_plane_intersection(a,b,b,p);  // replace b with ab-plane intersection 
 		segment_plane_intersection(a,c,c,p);  // replace c with ac-plane intersection 
 		*nt = 1; 
+        *altered=1;
 		return; 
 	}
 
@@ -513,6 +525,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 		segment_plane_intersection(a,b,a,p);  // replace a with ab-plane intersection 
 		segment_plane_intersection(b,c,c,p);  // replace c with bc-plane intersection 
 		*nt = 1; 
+        *altered=1;
 		return; 
 	}
 
@@ -520,6 +533,8 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 		segment_plane_intersection(a,c,a,p);  // replace a with ab-plane intersection 
 		segment_plane_intersection(b,c,b,p);  // replace b with bc-plane intersection 
 		*nt = 1; 
+        *altered=1;
+
 		return; 
 	}
 
@@ -530,11 +545,13 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
         set(&a0[0],a);
 		segment_plane_intersection(a,b,a,p);  // replace b with ab-plane intersection 
 
-		segment_plane_intersection(a0,c,d,p);  // replace c with ac-plane intersection 
+		segment_plane_intersection(a0,c,d,p);  // set the new vertex d 
 		set(&d[3],a);
 		set(&d[6],c);
 
 		*nt = 2; 
+        *altered=1;
+
 		return; 
 	}
 
@@ -551,7 +568,7 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 //        c0[0], c0[1], c0[2],b[0], b[1], b[2]
  //       );
 
-		segment_plane_intersection(c0,a,d,p);  // replace c with cb-plane intersection 
+		segment_plane_intersection(c0,a,d,p);  // set the new vertex d  
    //     printf("new vertex2 %.2f %.2f %.2f between (%.2f %.2f %.2f) and (%.2f %.2f %.2f)\n", d[0], d[1], d[2],
    //     c0[0], c0[1], c0[2],a[0], a[1], a[2]
     //    );
@@ -559,6 +576,8 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 		set(&d[6],c);
 
 		*nt = 2; 
+        *altered=1;
+
 		return; 
 	}
 
@@ -570,11 +589,13 @@ void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) 
 
 		segment_plane_intersection(a,b,b,p);  // replace c with cb-plane intersection 
 
-		segment_plane_intersection(b0,c,d,p);  // replace c with cb-plane intersection 
+		segment_plane_intersection(b0,c,d,p);  // set the new vertex d  
 		set(&d[3],c);
 		set(&d[6],b);
 
 		*nt = 2; 
+        *altered=1;
+
 		return; 	
 	}
 
@@ -628,4 +649,53 @@ bool segment_spans_plane( float* a, float* b, Plane* p ) {
 
 float signed_distance_to_plane(float* a, Plane* p) {
 	return (dot(a,&(p->n[0]))+ p->d);
+}
+
+
+int add_side_quad( float* triangle ,  Plane* p, float* new_triangles, float droplevel ) {
+   //printf("add sidequad\n"); fflush(stdout);
+    float *a = &triangle[0];
+    float *b = &triangle[3];
+    float *c = &triangle[6];
+
+    float *x;
+    float *y;
+
+    float z[3];
+    float w[3];
+
+    int n_on_plane=0;
+    float da = signed_distance_to_plane(a,p);  if (da==0.0) {n_on_plane++;}
+    float db = signed_distance_to_plane(b,p);  if (db==0.0) {n_on_plane++;}
+    float dc = signed_distance_to_plane(c,p);  if (dc==0.0) {n_on_plane++;}
+
+    if (n_on_plane == 0) {return 0;}
+    if (n_on_plane == 1) {return 0;}
+    if (n_on_plane == 3) {printf("warning: new triangle in the plane?"); return 0;}
+
+    if (da==0.0 && db==0.0) {  x = a;  y = b;    }
+    if (db==0.0 && dc==0.0) {  x = b;  y = c;    }
+    if (dc==0.0 && da==0.0) {  x = c;  y = a;    }
+
+    set(&z[0],x); z[2]= droplevel;
+    set(&w[0],y); w[2] = droplevel;
+ 
+    if (1) {
+    set( &new_triangles[0] , x );
+    set( &new_triangles[3] , z );
+    set( &new_triangles[6] , y );
+
+    set( &new_triangles[9] , y );
+    set( &new_triangles[12] , z );
+    set( &new_triangles[15] , w );
+    } else {
+    set( &new_triangles[18] , x );
+    set( &new_triangles[21] , y );
+    set( &new_triangles[24] , z );
+
+    set( &new_triangles[27] , z );
+    set( &new_triangles[30] , y );
+    set( &new_triangles[33] , w );
+    }
+    return(2);
 }

@@ -38,10 +38,12 @@ void apply_transform_to_mesh(MeshTriangles*  texture,  void(*trnsfrm)(float*, fl
 float signed_distance_to_plane(float* a, Plane* p);
 bool segment_spans_plane( float* a, float* b, Plane* p );
 
-void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt ) ;
+void clip_triangle( float* a, float* b, float* c, float* d, Plane* p, int* nt, int* altered ) ;
 
 bool triangle_spans_plane( float* a, float* b, float* c, Plane* p ) ;
 
 
 void segment_plane_intersection( float* a, float* b, float* q, Plane* p ) ;
 
+int add_side_quad( float* triangle ,  Plane* p, float* new_triangles, float droplevel );
+void free_meshtriangles( MeshTriangles* mt ) ;
