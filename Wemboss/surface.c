@@ -9,7 +9,7 @@
 #include "catmullrom.h"
 #include "vectorops.h"
 #include "triangles.h"
-
+#include "assert.h"
 
 
 
@@ -146,6 +146,10 @@ void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
 
 }
 
+
+
+
+
 void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
 
     if (flip) {
@@ -188,6 +192,19 @@ void stl_cuboid(float* c, FILE* stlfile) {
 
 }
 
+
+float hole_width(float t, int n_holes, float size) {
+
+    float tp = t*n_holes; 
+    int n = (int) tp;
+    tp = (tp - (float) n)-0.5;
+
+    if (fabs(tp)>0.2) {return(0.0);}
+    return(0.5*size);
+
+}
+
+
 void write_support_ties_stl(
     pottoy_spec_t* spec,
     int quadrant1, int quadrant2, float* offset1, 
@@ -213,6 +230,8 @@ void write_support_ties_stl(
         float r_fact = ((float) j) / ((float)(n_per_level + 1));
     for( int i = 0; i<n_levels; i++ ) {
         float t = i*delta_t;
+
+        if ( hole_width(t,3,0.3*length)>0 ) {continue;} 
 
         mold_parting_norm_ray( t, length , thickness, quadrant1, spec, &ray1[0]);
         add(ray1,ray1,offset1);
@@ -275,6 +294,34 @@ void write_support_ties_stl(int quadrant, float length, float* offset, float thi
 }
 */
 
+
+
+void stl_print_split_quad( float* ray1 , float* ray2 , FILE* fp, int flip, float a, float b, float c, float d ) {
+
+    float ray1a[6]; 
+    float ray1b[6]; 
+
+    float ray2a[6]; 
+    float ray2b[6]; 
+
+    weighted_sum3( ray1a   , 1  ,  0 , ray1 , &ray1[3]);	
+    weighted_sum3(&ray1a[3], 1-a,  a , ray1 , &ray1[3]);	
+
+    weighted_sum3( ray1b   , 1-b ,  b , ray1 , &ray1[3]);	
+    weighted_sum3(&ray1b[3], 0   ,  1 , ray1 , &ray1[3]);	
+
+    weighted_sum3( ray2a   , 1  ,  0 , ray2 , &ray2[3]);	
+    weighted_sum3(&ray2a[3], 1-c,  c , ray2 , &ray2[3]);	
+
+    weighted_sum3( ray2b   , 1-d ,  d , ray2 , &ray2[3]);	
+    weighted_sum3(&ray2b[3], 0   ,  1 , ray2 , &ray2[3]);	
+
+    stl_printquad( ray1a , ray2a , fp, flip ) ;
+    stl_printquad( ray1b , ray2b , fp, flip ) ;
+
+}
+
+
 void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
       float thickness, int reverse) {
     float ray1[6];
@@ -284,9 +331,18 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
     float ray2_back[6];
     float norm[3];
 
-    int n_segments = 50;
+    float hole_contour_points1[256];
+    float hole_contour_points2[256];
+    int hci1=0;
+    int hci2=0;
+    int in_hole=0;
+
+    int n_segments = 51;
     float delta_t = 1.0 / ((float) n_segments);
     float t=0.0;
+
+    float gap1, gap2;
+    int n_keys = 3;
 
     mold_parting_norm_ray( t, l , thickness, quadrant, spec, &ray1[0]);
     add(ray1,ray1,offset);
@@ -296,13 +352,15 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
     memcpy( &ray1_back[0] , &ray1[0] , sizeof(float)*6 );
     add(ray1_back,ray1_back, norm );
     add(&ray1_back[3],&ray1_back[3], norm );
-
+    gap1 = hole_width(t,n_keys,0.3*l);
+    if (gap1>0) { in_hole=1; }
 
     for(int i=0; i<n_segments; i++) {
        // printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
         //    ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
 
         t += delta_t;
+        gap2 = hole_width(t,n_keys,0.3*l);
 
         mold_parting_norm_ray( t, l, thickness , quadrant, spec, &ray2[0]);
         add(ray2,ray2,offset);
@@ -314,8 +372,13 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
         add(&ray2_back[3], &ray2_back[3], norm );
 
         if (reverse) {
-            stl_printquad( &ray1[0],&ray2[0],stlfile, 0 );
-            stl_printquad( &ray2_back[0],&ray1_back[0],stlfile, 1 );
+            if ((gap1==0) && (gap2 ==0)) {
+                stl_printquad( &ray1[0],&ray2[0],stlfile, 0 );
+                stl_printquad( &ray2_back[0],&ray1_back[0],stlfile, 1 );
+            } else {
+                stl_print_split_quad(&ray1[0],&ray2[0],stlfile, 0 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l); 
+                stl_print_split_quad(&ray2_back[0],&ray1_back[0],stlfile, 1 , 0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l); 
+            }
 
             stl_triangle( &ray1[3], &ray1_back[3], &ray2[3] ,stlfile );  //edge of the thing
             stl_triangle( &ray2[3], &ray1_back[3], &ray2_back[3],stlfile );  //edge of the thing
@@ -325,8 +388,13 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 //            stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp ); 
 
         } else {
-            stl_printquad( &ray2[0],&ray1[0],stlfile, 1 );
-            stl_printquad( &ray1_back[0],&ray2_back[0],stlfile, 0 );
+            if ((gap1==0) && (gap2 ==0)) {
+                stl_printquad( &ray2[0],&ray1[0],stlfile, 1 );
+                stl_printquad( &ray1_back[0],&ray2_back[0],stlfile, 0 );
+            } else {
+                stl_print_split_quad(&ray2[0],&ray1[0],stlfile, 0,  0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l ); 
+                stl_print_split_quad(&ray1_back[0],&ray2_back[0],stlfile, 1 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l ); 
+            }
 
             stl_triangle( &ray1[3], &ray2[3], &ray1_back[3] ,stlfile );  //edge of the thing
             stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
@@ -339,8 +407,84 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 
         }
 
+        if ((gap1==0) && (gap2==0)) {
+            if (hci1>0 || hci2>0) {
+
+                float key_triangle_buffer[300];
+                float key_offset[3];
+
+                set(key_offset,norm);
+
+                if ((quadrant+reverse)%2==0) scale(key_offset,-1.0);
+                // make the key here
+
+                
+                while (hci2 >0 ) {
+                    set( &hole_contour_points1[(hci1++)*3], &hole_contour_points2[(--hci2)*3] );
+                }
+
+                int nt_key = contour_to_mesa(hci1, &hole_contour_points1[0], key_offset, 0.5, 100, &key_triangle_buffer[0]);
+
+                if (reverse) {
+                    for (int i=0;i<nt_key;i++) {
+                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],stlfile);   
+                    }
+                } else {
+                    for (int i=0;i<nt_key;i++) {
+                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],stlfile);   
+                    }
+                }
+
+                for (int i=0;i<nt_key*3;i++) {
+                    add( &key_triangle_buffer[3*i],&key_triangle_buffer[3*i],norm );
+                }
+
+                if (!reverse) {
+                    for (int i=0;i<nt_key;i++) {
+                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],stlfile);   
+                    }
+                } else {
+                    for (int i=0;i<nt_key;i++) {
+                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],stlfile);   
+                    }
+                }
+
+                hci1=0;
+                hci2=0;
+                in_hole=0;
+            }
+        } else {
+//            if (in_hole==0) {
+            if ((gap1==0) && (gap2>0)  ) {
+                // start a new hole
+
+
+                weighted_sum3(  &hole_contour_points1[(hci1++)*3]   , 0.5  ,  0.5 , ray1 , &ray1[3]);	 // apex point
+
+                weighted_sum3(  &hole_contour_points1[(hci1++)*3]   , 1-(0.5-gap2/l)  ,  (0.5-gap2/l) , ray2 , &ray2[3]);	 // apex point
+                weighted_sum3(  &hole_contour_points2[(hci2++)*3]   , 1-(0.5+gap2/l)  ,  (0.5+gap2/l), ray2 , &ray2[3]);	 // apex point
+
+
+                in_hole = 1;
+            } else if (gap2==0.0) {   // end a hole
+
+                weighted_sum3(  &hole_contour_points1[(hci1++)*3]   , 0.5  ,  0.5 , ray2 , &ray2[3]);	 // apex point
+                
+
+            } else  {  // continue a hole
+                weighted_sum3(  &hole_contour_points1[(hci1++)*3]   , 1-(0.5-gap2/l)  ,  (0.5-gap2/l) , ray2 , &ray2[3]);	 // apex point
+                weighted_sum3(  &hole_contour_points2[(hci2++)*3]   , 1-(0.5+gap2/l)  ,  (0.5+gap2/l), ray2 , &ray2[3]);	 // apex point
+
+            }
+
+            
+
+        }
+
+
         memcpy( &ray1[0] , &ray2[0] , sizeof(float)*6 );
         memcpy( &ray1_back[0] , &ray2_back[0] , sizeof(float)*6 );
+        gap1=gap2;
     }
 }
 
@@ -1126,3 +1270,60 @@ void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sec
     fflush(stdout);
 }
 
+ 
+
+int contour_to_mesa(int n, float* p, float* offset, float f, int nt, float* result_buffer) {
+    float center[3] = {0.0,0.0,0.0};
+    float c[3] = {0.0,0.0,0.0};
+    float d[3] = {0.0,0.0,0.0};
+    float o[3] = {0.0,0.0,0.0};
+
+    float* a;
+    float* b;
+    assert(nt>=3*n);
+//    memcpy(result_buffer,p,n*3*sizeof(float));
+
+    for (int i=0;i<n;i++) {
+        center[0] += p[i*3 + 0];
+        center[1] += p[i*3 + 1];
+        center[2] += p[i*3 + 2];
+    }
+    center[0] /= n;
+    center[1] /= n; 
+    center[2] /= n; 
+   // set(&o[0],&center[0]);
+    add(&o[0],&center[0],offset);
+/*
+ 
+      |a      c
+    i *------*-------* o   center
+      |        \    /
+      |       ___>* 
+      |  ___/      d
+      |b/
+  i+1 *
+      |
+    
+    triangles   abc ,  cbd,  cdo
+
+*/
+
+    int nr = 0;
+    for (int i=0;i<n;i++) {
+        a = &p[i*3]        ;
+        b = &p[((i+1)%n)*3];
+
+        weighted_sum3( &c[0] , f, 1-f, a, &center[0]);	
+        weighted_sum3( &d[0] , f, 1-f, b, &center[0]);	
+
+        add( &c[0], &c[0], offset );
+        add( &d[0], &d[0], offset );
+
+        set_triangle( &result_buffer[nr*9], a,b,c);  nr++;
+        set_triangle( &result_buffer[nr*9], c,b,d);  nr++;
+        set_triangle( &result_buffer[nr*9], c,d,o);  nr++;
+
+    }
+    return(nr);
+
+}

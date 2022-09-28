@@ -448,8 +448,8 @@ int main(int argc, char *argv[])
             return(0);
         } 
 
-            float offset_size = 35.0;
-            float thickness = 15.0;
+            float offset_size = 50.0;
+            float thickness = 20.0;
             float angle_pad = 0.005;
 
 
@@ -576,12 +576,10 @@ int main(int argc, char *argv[])
             write_parting_sufrace_stl( quadrant,   length , &spec,  stlfile, &offsets[quadrant*3], thickness, 0); 
             write_parting_sufrace_stl( quadrant-1, length , &spec,  stlfile, &offsets[quadrant*3], thickness, 1); 
 
-
-
-                write_support_ties_stl(&spec, quadrant, quadrant, 
-                &offsets[3* quadrant ], 
-                &offsets[3* ((quadrant+1)%4)], length, thickness, stlfile );
-           
+            write_support_ties_stl(&spec, quadrant, quadrant, 
+            &offsets[3* quadrant ], 
+            &offsets[3* ((quadrant+1)%4)], length, thickness, stlfile );
+    
         }
 
 	fprintf(stlfile, "endsolid x\n");

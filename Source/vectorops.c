@@ -53,13 +53,11 @@ void set2(float* r, float* a) {
 	r[1] = a[1] ;
 }
 
-
 void scale(float* p, float a) {
 	p[0] *= a ;
 	p[1] *= a ;
 	p[2] *= a ;
 }
-
 
 void set(float* r, float* a) {
 	r[0] = a[0] ;
@@ -67,6 +65,11 @@ void set(float* r, float* a) {
 	r[2] = a[2] ;
 }
 
+void set_triangle(float* r, float* a, float* b, float* c) {
+	set( r,    a );
+	set( &r[3],b );
+	set( &r[6],c );
+}
 
 float norm22(float* n) {	return ( n[0]*n[0]+n[1]*n[1] );}
 

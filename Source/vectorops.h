@@ -14,6 +14,7 @@ void add2(float* r, float* a, float* b);
 void set2(float* r, float* a) ;
 
 void set(float* r, float* a) ;
+void set_triangle(float* r, float* a, float* b, float* c) ;
 
 void weighted_sum3(float* r, float w1, float w2, float* v1, float* v2);
 

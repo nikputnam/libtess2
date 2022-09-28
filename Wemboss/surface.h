@@ -62,8 +62,11 @@ void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins
 void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,float mins, float maxs ,float length, float thickness, float* offset,
  float t, int top) ;
 
+int contour_to_mesa(int n, float* p, float* offset, float f, int nt, float* result_buffer) ;
+
 
 void write_support_ties_stl(
     pottoy_spec_t* spec,
     int quadrant1, int quadrant2, float* offsets1, 
-        float* offsets2, float length, float thickness, FILE* stlfile ) ;
+        float* offsets2, float length, float thickness, FILE* stlfile ) ;//
+       // &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3]clup
