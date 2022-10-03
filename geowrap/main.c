@@ -6,6 +6,7 @@
 #include "surface.h"
 #include "triangles.h"
 #include "vectorops.h"
+#include "meshindex2d.h"
 
 
 pottoy_spec_t spec;  
@@ -92,7 +93,8 @@ void printf_triangle(float* x) {
     printf("t: %.2f %.2f %.2f ; %.2f %.2f %.2f ; %.2f %.2f %.2f \n", x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8] );
 }
 
-#define TBUFF_SIZE 3*3*32*2
+#define DEBUG_CLIPPING 0
+#define TBUFF_SIZE 3*3*64*2
 void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
          Plane* rs_planes, int n_rs_planes, 
          Plane* xyz_planes, int n_xyz_planes ,
@@ -107,15 +109,22 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
     int altered;
     int nt2=0;
     int ti2=0;
+    float zhat[3] = {0,0,1};
 
+    char plane_flags[100];
 
+    for(int pi=0;pi<n_rs_planes;pi++) {
+        if (dot( rs_planes[pi].n, &zhat[0] )==1.0) {
+            plane_flags[pi]=1;
+        }
+    }
+    
 
-//    float drop_offset[3] = { 0,0,-dropdepth };
-
+    //float drop_offset[3] = { 0,0,-dropdepth };
     set( &triangles[0], z1 );
     set( &triangles[3], z2 );
     set( &triangles[6], z3 );
-  //  printf("clip triangle\n "); fflush(stdout);
+    //printf("clip triangle\n "); fflush(stdout);
 
     memset(&triangle_flags[0],0,sizeof(int)*TBUFF_SIZE);
     while(ti<nt) {
@@ -123,7 +132,7 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
         int nt0 = nt;
         for(int pi=0;pi<n_rs_planes;pi++) {
             int tr = 0; 
-          //  printf("clip triangle %d %d %f %f %f -- %f %f %f -- %f %f %f\n",ti,nt,z1[0],z1[1],z1[2],z2[0],z2[1],z2[2],z3[0],z3[1],z3[2]); fflush(stdout);
+          printf("clip triangle %d %d %d %f %f %f -- %f %f %f -- %f %f %f\n",ti,nt,triangle_flags[ti],z1[0],z1[1],z1[2],z2[0],z2[1],z2[2],z3[0],z3[1],z3[2]); fflush(stdout);
 
             if (!triangle_flags[ti]) {
                 clip_triangle( &triangles[ ti*9 ] , &triangles[ ti*9 +3], &triangles[ ti*9 +6], 
@@ -138,9 +147,9 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
             if (tr>1) {
                 // if we're adding new sides perpendicular to the cutting plane...  
                 nt++; // //printf("nt=%d\n",nt);
-                if (droplevel!=0.0) {
+                if ((droplevel!=0.0) && (!plane_flags[pi])) {
                    // int ntt = nt;
-//                    for (int i=ti; i<ntt; i++) {
+                    // for (int i=ti; i<ntt; i++) {
                         //printf("####\n");
 
                         r=add_side_quad( &triangles[ (nt-1)*9 ] ,  &rs_planes[pi], &triangles[ nt*9 ], droplevel ); if (r>0) {
@@ -156,7 +165,7 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
                 assert(nt*9<TBUFF_SIZE);
              } 
  
-            if ((tr>=1)&& altered &&(droplevel!=0.0)) {
+            if ((tr>=1)&& altered &&(droplevel!=0.0)&& (!plane_flags[pi])) {
                 r=add_side_quad( &triangles[ ti*9     ] ,  &rs_planes[pi], &triangles[ nt*9 ], droplevel ); if (r>0) {
                     nt += r;
                     for(int j=0; j<r; j++)  {triangle_flags[nt-1-j]=1; }
@@ -165,12 +174,15 @@ void print_triangle_clipped( float* z1, float* z2, float* z3 , FILE* fp,
                   //  printf("no drops 0\n");
                     }
             }
-           // printf("xydrops %d\n", n_that_drop);
+           printf("xydrops %d\n", n_that_drop);
 
         }
+        printf("ti=%d ti*9+6=%d %d; n rs planes: %d\n",ti,ti*9 +6, TBUFF_SIZE, n_rs_planes);fflush(stdout);
+
         if (nr>0) {
             //print_triangle( &triangles[ ti*9 ] , &triangles[ ti*9 +3], &triangles[ ti*9 +6], fp );
-
+            assert( ti*9 +6 < TBUFF_SIZE );
+            printf("ti=%d ti*9+6=%d %d\n",ti,ti*9 +6, TBUFF_SIZE);fflush(stdout);
             transform( &triangles2[nt2*9] , &triangles[ ti*9 ]);
             transform( &triangles2[nt2*9+3] , &triangles[ ti*9 +3]);
             transform( &triangles2[nt2*9+6] , &triangles[ ti*9 +6]);
@@ -374,15 +386,50 @@ int main(int argc, char *argv[])
         float miny = bbox[1];
         float maxy = bbox[4];
         
-
         float width = atof(argv[5]);
         if (argc>6)  { mold_mode = atoi(argv[6]);  }
         MeshTriangles* mt = parse_triangles(argv[2],(float) width);
+        if (mt == NULL) {return 1;} 
         printf("parsed interpolation\n");
+
+        printf("n points=%d\n",mt->npoints);
+        printf("n triangles=%d\n",mt->ntriangles);
+        meshindex* mi = build_mesh_index( mt->points, mt->triangles, mt->ntriangles, 100, 100 ) ;
 
 
         MeshTriangles* texture = parse_triangles_with_normals(argv[1],(float) 1.0);
-        printf("parsed with normals\n");
+        if (texture == NULL) {return 1;} 
+
+/*
+        for(int i = 0;i<texture->ntriangles;i++) {
+            for (int j=0;j<3;j++) {
+                int a = texture->triangles[i*3 + j];
+                float x = texture->xpoints[a*3];
+                float y = texture->xpoints[a*3+1];
+                float z = texture->xpoints[a*3+2];
+
+                meshindex_it* it = index_iterator( x,y,mi );
+                printf("\n");
+                while (!it->done) { 
+                    int aa = mt->triangles[3*it->t    ];
+                    int bb = mt->triangles[3*it->t + 1];
+                    int cc = mt->triangles[3*it->t + 2];
+                    printf("triangle %d (%f,%f) index %d   (%f,%f)-(%f,%f)-(%f,%f)\n",i,x,y,it->t, 
+                        mt->points[2*aa], 
+                        mt->points[2*aa+1], 
+                        mt->points[2*bb], 
+                        mt->points[2*bb+1], 
+                        mt->points[2*cc], 
+                        mt->points[2*cc+1]
+                    );
+                    it = next_index(it);
+                }
+            }
+            
+        }
+*/
+
+        printf("parsed with normals\n");  fflush(stdout);
         apply_interpolation_to_mesh( texture, mt, 10.0 );
 
         free_meshtriangles( mt ) ;
@@ -406,12 +453,20 @@ int main(int argc, char *argv[])
 
             for (int i=0; i<texture->ntriangles; i++) {
                 //printf("mt path %d\n",i);
+                
                 int n1 = texture->triangles[3*i];
                 int n2 = texture->triangles[3*i+1];
                 int n3 = texture->triangles[3*i+2];
 
                 if ( texture->nxpoints <= n1 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n1, 
-                texture->nxpoints,i, texture->ntriangles);}
+                texture->nxpoints,i, texture->ntriangles); fflush(stdout);;}
+
+                if ( texture->nxpoints <= n2 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n2, 
+                texture->nxpoints,i, texture->ntriangles); fflush(stdout);;}
+
+                if ( texture->nxpoints <= n3 ) {printf("n1=%d but  texture->nxpoints=%d i=%d ntriangles=%d\n",n3, 
+                texture->nxpoints,i, texture->ntriangles); fflush(stdout);}
+
                 assert( texture->nxpoints > n1 );
                 assert( texture->nxpoints > n2 );
                 assert( texture->nxpoints > n3 );
@@ -427,7 +482,9 @@ int main(int argc, char *argv[])
 
                 if (v1[2]<0.0 && v2[2]<0.0 && v3[2]<0.0) {continue;}
 
-                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 1, clip_xyz_planes, 2, &offset[0], -0.5*thickness);
+                printf("print clipped %d %d %d\n",n1,n2,n3);
+
+                print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 1, clip_xyz_planes, 2, &offset[0],0);
                             fflush( stlfile );
                 if (i%1000==0) {printf("%d/%d\n",i,texture->ntriangles); fflush(stdout);}
       //          print_triangle_clipped(v1,v2,v3, stlfile, clip_rs_planes, 2, clip_xyz_planes, 2,&offsets[quadrant*3]); //2 omits inside clip
@@ -436,8 +493,8 @@ int main(int argc, char *argv[])
             printf("done writing texture\n");
             fflush(stdout);
 
-            write_surface_stl( &transform, stlfile, 0, 1, thickness,&offset[0] );
-            write_texture_back_stl( &transform, stlfile, 0, 1, 0.5*thickness,&offset[0]) ;
+//            write_surface_stl( &transform, stlfile, 0, 1, thickness,&offset[0] );
+//            write_texture_back_stl( &transform, stlfile, 0, 1, 0.5*thickness,&offset[0]) ;
 
 
             fprintf(stlfile, "endsolid x\n");
@@ -562,23 +619,29 @@ int main(int argc, char *argv[])
 
             if (quadrant>=4) {continue;}
 
-            float length = 200.0;
+            float length = 300.0;
             write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
             write_texture_back_stl( &transform, stlfile, mins, maxs, 0.5*thickness,&offsets[quadrant*3]) ;
 
           //  if (quadrant==1) {
-                write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 0 ,0);
+             //   write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 0 ,0);
                 
                 // too overhanging for 3d print?
 //                write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 1 ,1);
          //   }
  
-            write_parting_sufrace_stl( quadrant,   length , &spec,  stlfile, &offsets[quadrant*3], thickness, 0); 
-            write_parting_sufrace_stl( quadrant-1, length , &spec,  stlfile, &offsets[quadrant*3], thickness, 1); 
+
+            stl_output_config outputcf;
+            outputcf.fp = stlfile;
+            outputcf.clipping_planes = &clip_xyz_planes[0];
+            outputcf.n_clipping_planes = 2;
+
+            write_parting_sufrace_stl( quadrant,   length , &spec,  outputcf, &offsets[quadrant*3], thickness, 0); 
+            write_parting_sufrace_stl( quadrant-1, length , &spec,  outputcf, &offsets[quadrant*3], thickness, 1); 
 
             write_support_ties_stl(&spec, quadrant, quadrant, 
             &offsets[3* quadrant ], 
-            &offsets[3* ((quadrant+1)%4)], length, thickness, stlfile );
+            &offsets[3* ((quadrant+1)%4)], length, thickness, outputcf );
     
         }
 

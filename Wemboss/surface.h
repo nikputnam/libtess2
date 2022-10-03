@@ -1,5 +1,5 @@
 #include "tesselator.h"
-
+#include "triangles.h"
 
 
 void X(float* xyz, float* vtheta);
@@ -8,6 +8,13 @@ void X(float* xyz, float* vtheta);
 
 int write_surface_obj(char* fn);
 //int write_surface_obj_spec(spec,argv[2]);   
+
+typedef struct stl_output_config {
+    FILE* fp;
+    float scaling;
+    Plane* clipping_planes;
+    int n_clipping_planes;
+} stl_output_config;
 
 
 typedef struct pottoy_struct {
@@ -50,11 +57,12 @@ void add_triangle_contours(TESStesselator* tess, pottoy_spec_t* spec, int mn_sec
 void mold_parting_norm_ray( float u, float l,float thickness, int quadrant  , pottoy_spec_t* spec, float* result) ;
 
 //void mold_parting_norm_ray( float u, float l, int quadrant  , pottoy_spec_t* spec, float* result) ;
-void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
+void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, stl_output_config cf, float* offset, 
      float thickness,  int reverse) ;
 
 //void write_parting_sufrace_stl( int quadrant, float l , pottoy_spec_t* spec, FILE* stlfile) ;
 void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) ;
+void output_triangle( float* v1, float* v2, float* v3, stl_output_config cf ) ;
 
 void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs , float thickness, float* offset) ;
 
@@ -68,5 +76,7 @@ int contour_to_mesa(int n, float* p, float* offset, float f, int nt, float* resu
 void write_support_ties_stl(
     pottoy_spec_t* spec,
     int quadrant1, int quadrant2, float* offsets1, 
-        float* offsets2, float length, float thickness, FILE* stlfile ) ;//
+        float* offsets2, float length, float thickness, stl_output_config cf ) ;//
        // &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3]clup
+
+void output_split_quad( float* ray1 , float* ray2 ,stl_output_config cf , int flip, float a, float b, float c, float d ) ;

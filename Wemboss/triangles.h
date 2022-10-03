@@ -1,5 +1,8 @@
 #include <stdbool.h>
 
+#ifndef _tringles_h_
+#define _tringles_h_
+
 typedef struct MeshTriangles
 {
 	int ntriangles;				
@@ -47,3 +50,5 @@ void segment_plane_intersection( float* a, float* b, float* q, Plane* p ) ;
 
 int add_side_quad( float* triangle ,  Plane* p, float* new_triangles, float droplevel );
 void free_meshtriangles( MeshTriangles* mt ) ;
+
+#endif

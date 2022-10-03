@@ -130,6 +130,59 @@ void sor(float* xyz, float* uv, pottoy_spec_t* spec ) {
 
 }
 
+
+#define TBUFF_SIZE2 3*3*32*2
+void output_triangle( float* v1, float* v2, float* v3, stl_output_config cf ) {
+
+    float triangles[ TBUFF_SIZE2 ];
+  
+    int nt=1;
+    int ti=0;
+    int r;
+    int altered;
+    int nt2=1;
+    int ti2=0;
+
+//    float drop_offset[3] = { 0,0,-dropdepth };
+
+    set( &triangles[0], v1 );
+    set( &triangles[3], v2 );
+    set( &triangles[6], v3 );
+  //  printf("clip triangle\n "); fflush(stdout);
+
+    int n_written=0;
+    while(ti2<nt2) {
+        int nr = 1;
+        int nt20 = nt2;
+        for(int pi=0;pi<cf.n_clipping_planes ;pi++) {
+            //printf("clip with xyzplane ");
+           // printf_triangle(&triangles2[ ti2*9 ]);
+            int tr = 0; 
+            clip_triangle( &triangles[ ti2*9 ] , &triangles[ ti2*9 +3], &triangles[ ti2*9 +6], 
+            &triangles[ nt2*9 ], &cf.clipping_planes[pi], &tr, &altered );
+            nr *= tr;
+            if (tr>1) { 
+              //  printf_triangle(&triangles2[ nt2*9 ]);
+            nt2++; //printf("nt=%d\n",nt);
+             assert(nt*9<TBUFF_SIZE2);} 
+        }
+        if (nr>0) {
+               
+            stl_triangle( 
+                &triangles[ ti2*9 ]  , 
+                &triangles[ ti2*9 +3] , 
+                &triangles[ ti2*9 +6] , cf.fp );
+               // fflush(fp);
+
+            n_written++;
+        } 
+
+        ti2++;
+    }
+ //   stl_triangle( v1, v2, v3, cf.fp );
+}
+
+
 void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
     float n[3];
 
@@ -147,7 +200,17 @@ void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
 }
 
 
+void output_quad( float* ray1 , float* ray2 ,  stl_output_config cf , int flip ) {
 
+    if (flip) {
+        output_triangle( &ray1[0], &ray1[3], &ray2[3] ,cf );
+        output_triangle( &ray1[0], &ray2[3], &ray2[0] ,cf );
+    } else {
+        output_triangle( &ray1[0], &ray1[3], &ray2[0] ,cf );
+        output_triangle( &ray2[0], &ray1[3], &ray2[3] ,cf );
+    }
+
+}
 
 
 void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
@@ -160,7 +223,33 @@ void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
         stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp );
     }
 }
+
 void mold_parting_surface_norm(float u, int quadrant, pottoy_spec_t* spec, float* result) ;
+
+
+
+
+void output_cuboid(float* c, stl_output_config cf) {
+
+    output_triangle( &c[0],  &c[6] , &c[3] ,cf );  //edge of the thing
+    output_triangle( &c[6],  &c[9] , &c[3] ,cf );  //edge of the thing
+
+    output_triangle( &c[12],  &c[15] , &c[18] ,cf );  //edge of the thing
+    output_triangle( &c[15],  &c[21] , &c[18] ,cf );  //edge of the thing
+
+    output_triangle( &c[0],  &c[12] , &c[6] ,cf );  //edge of the thing
+    output_triangle( &c[6],  &c[12] , &c[18] ,cf );  //edge of the thing
+
+    output_triangle( &c[3],  &c[9] , &c[15] ,cf );  //edge of the thing
+    output_triangle( &c[15],  &c[9] , &c[21] ,cf );  //edge of the thing
+
+    output_triangle( &c[3],  &c[15] , &c[0] ,cf );  //edge of the thing
+    output_triangle( &c[0],  &c[15] , &c[12] ,cf );  //edge of the thing
+
+    output_triangle( &c[6],  &c[18] , &c[9] ,cf );  //edge of the thing
+    output_triangle( &c[9],  &c[18] , &c[21] ,cf );  //edge of the thing
+
+}
 
 void stl_cuboid(float* c, FILE* stlfile) {
 
@@ -182,14 +271,6 @@ void stl_cuboid(float* c, FILE* stlfile) {
     stl_triangle( &c[6],  &c[18] , &c[9] ,stlfile );  //edge of the thing
     stl_triangle( &c[9],  &c[18] , &c[21] ,stlfile );  //edge of the thing
 
-
-//    stl_triangle( &c[12],  &c[6] , &c[15] ,stlfile );  //edge of the thing
-
-
- //   stl_triangle( &c[0],  &c[6] , &c[3] ,stlfile );  //edge of the thing
-    //stl_triangle( &c[0],  &c[3] , &c[6] ,stlfile );  //edge of the thing
-    //stl_triangle( &c[0],  &c[3] , &c[6] ,stlfile );  //edge of the thing
-
 }
 
 
@@ -208,7 +289,7 @@ float hole_width(float t, int n_holes, float size) {
 void write_support_ties_stl(
     pottoy_spec_t* spec,
     int quadrant1, int quadrant2, float* offset1, 
-        float* offset2, float length, float thickness, FILE* stlfile ) {
+        float* offset2, float length, float thickness, stl_output_config cf ) {
 
     int n_levels = 20;
     int n_per_level = 4;
@@ -268,7 +349,7 @@ void write_support_ties_stl(
         weighted_sum3( &cuboid[21], (1-r_fact-th), r_fact+th, &ray4[3], &ray4[0] );
 
 
-        stl_cuboid( cuboid, stlfile );
+        output_cuboid( cuboid, cf );
 //        stl_triangle( &ray1[3],  &ray2[0] , &ray2[0] ,stlfile );  //edge of the thing
 
         //mold_parting_norm_ray( t, length , thickness, quadrant, spec, &ray1[0]);
@@ -294,6 +375,31 @@ void write_support_ties_stl(int quadrant, float length, float* offset, float thi
 }
 */
 
+
+void output_split_quad( float* ray1 , float* ray2 ,stl_output_config cf , int flip, float a, float b, float c, float d ) {
+
+    float ray1a[6]; 
+    float ray1b[6]; 
+
+    float ray2a[6]; 
+    float ray2b[6]; 
+
+    weighted_sum3( ray1a   , 1  ,  0 , ray1 , &ray1[3]);	
+    weighted_sum3(&ray1a[3], 1-a,  a , ray1 , &ray1[3]);	
+
+    weighted_sum3( ray1b   , 1-b ,  b , ray1 , &ray1[3]);	
+    weighted_sum3(&ray1b[3], 0   ,  1 , ray1 , &ray1[3]);	
+
+    weighted_sum3( ray2a   , 1  ,  0 , ray2 , &ray2[3]);	
+    weighted_sum3(&ray2a[3], 1-c,  c , ray2 , &ray2[3]);	
+
+    weighted_sum3( ray2b   , 1-d ,  d , ray2 , &ray2[3]);	
+    weighted_sum3(&ray2b[3], 0   ,  1 , ray2 , &ray2[3]);	
+
+    output_quad( ray1a , ray2a , cf, flip ) ;
+    output_quad( ray1b , ray2b , cf, flip ) ;
+
+}
 
 
 void stl_print_split_quad( float* ray1 , float* ray2 , FILE* fp, int flip, float a, float b, float c, float d ) {
@@ -322,8 +428,11 @@ void stl_print_split_quad( float* ray1 , float* ray2 , FILE* fp, int flip, float
 }
 
 
-void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FILE* stlfile, float* offset, 
+void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, stl_output_config cf, float* offset, 
       float thickness, int reverse) {
+
+   // FILE* stlfile = cf.fp;
+
     float ray1[6];
     float ray2[6];
 
@@ -373,34 +482,34 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 
         if (reverse) {
             if ((gap1==0) && (gap2 ==0)) {
-                stl_printquad( &ray1[0],&ray2[0],stlfile, 0 );
-                stl_printquad( &ray2_back[0],&ray1_back[0],stlfile, 1 );
+                output_quad( &ray1[0],&ray2[0],cf, 0 );
+                output_quad( &ray2_back[0],&ray1_back[0],cf, 1 );
             } else {
-                stl_print_split_quad(&ray1[0],&ray2[0],stlfile, 0 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l); 
-                stl_print_split_quad(&ray2_back[0],&ray1_back[0],stlfile, 1 , 0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l); 
+                output_split_quad(&ray1[0],&ray2[0],cf, 0 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l); 
+                output_split_quad(&ray2_back[0],&ray1_back[0],cf, 1 , 0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l); 
             }
 
-            stl_triangle( &ray1[3], &ray1_back[3], &ray2[3] ,stlfile );  //edge of the thing
-            stl_triangle( &ray2[3], &ray1_back[3], &ray2_back[3],stlfile );  //edge of the thing
+            output_triangle( &ray1[3], &ray1_back[3], &ray2[3] ,cf );  //edge of the thing
+            output_triangle( &ray2[3], &ray1_back[3], &ray2_back[3],cf );  //edge of the thing
             
-            stl_triangle( &ray1[0],  &ray2[0] ,&ray1_back[0],stlfile );  //edge of the thing
-            stl_triangle( &ray2[0], &ray2_back[0], &ray1_back[0],stlfile );  //edge of the thing
+            output_triangle( &ray1[0],  &ray2[0] ,&ray1_back[0],cf );  //edge of the thing
+            output_triangle( &ray2[0], &ray2_back[0], &ray1_back[0],cf );  //edge of the thing
 //            stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp ); 
 
         } else {
             if ((gap1==0) && (gap2 ==0)) {
-                stl_printquad( &ray2[0],&ray1[0],stlfile, 1 );
-                stl_printquad( &ray1_back[0],&ray2_back[0],stlfile, 0 );
+                output_quad( &ray2[0],&ray1[0],cf, 1 );
+                output_quad( &ray1_back[0],&ray2_back[0],cf, 0 );
             } else {
-                stl_print_split_quad(&ray2[0],&ray1[0],stlfile, 0,  0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l ); 
-                stl_print_split_quad(&ray1_back[0],&ray2_back[0],stlfile, 1 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l ); 
+                output_split_quad(&ray2[0],&ray1[0],cf, 0,  0.5-gap2/l, 0.5+gap2/l,0.5-gap1/l, 0.5+gap1/l ); 
+                output_split_quad(&ray1_back[0],&ray2_back[0],cf, 1 , 0.5-gap1/l, 0.5+gap1/l, 0.5-gap2/l, 0.5+gap2/l ); 
             }
 
-            stl_triangle( &ray1[3], &ray2[3], &ray1_back[3] ,stlfile );  //edge of the thing
-            stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
+            output_triangle( &ray1[3], &ray2[3], &ray1_back[3] ,cf );  //edge of the thing
+            output_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],cf );  //edge of the thing
 
-            stl_triangle( &ray1[0], &ray1_back[0], &ray2[0] ,stlfile );  //edge of the thing
-            stl_triangle( &ray2[0], &ray1_back[0], &ray2_back[0],stlfile );  //edge of the thing
+            output_triangle( &ray1[0], &ray1_back[0], &ray2[0] ,cf );  //edge of the thing
+            output_triangle( &ray2[0], &ray1_back[0], &ray2_back[0],cf );  //edge of the thing
 
           //  stl_triangle( &ray1[0], &ray1[3], &ray2[0] ,fp );  //edge of the thing
           //  stl_triangle( &ray2[0], &ray1[3], &ray2[3] ,fp ); 
@@ -427,11 +536,11 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 
                 if (reverse) {
                     for (int i=0;i<nt_key;i++) {
-                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],stlfile);   
+                        output_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],cf);   
                     }
                 } else {
                     for (int i=0;i<nt_key;i++) {
-                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],stlfile);   
+                        output_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],cf);   
                     }
                 }
 
@@ -441,11 +550,11 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, FIL
 
                 if (!reverse) {
                     for (int i=0;i<nt_key;i++) {
-                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],stlfile);   
+                        output_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+6],&key_triangle_buffer[9*i+3],cf);   
                     }
                 } else {
                     for (int i=0;i<nt_key;i++) {
-                        stl_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],stlfile);   
+                        output_triangle( &key_triangle_buffer[9*i],&key_triangle_buffer[9*i+3],&key_triangle_buffer[9*i+6],cf);   
                     }
                 }
 
@@ -660,7 +769,7 @@ void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float
 
     for(int n=0; n<n_s_segments;n++) {
     for(int m=0; m<n_t_segments;m++) {
-        printf( "nm %d %d\n", n,m );
+      //  printf( "nm %d %d\n", n,m );
         
             for(int i=0;i<=1;i++) {
                 for(int j=0;j<=1;j++) {
@@ -719,7 +828,7 @@ void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins
 
     for(int n=0; n<n_s_segments;n++) {
     for(int m=0; m<n_t_segments;m++) {
-        printf( "nm %d %d\n", n,m );
+        //printf( "nm %d %d\n", n,m );
         
             for(int i=0;i<=1;i++) {
                 for(int j=0;j<=1;j++) {
@@ -995,7 +1104,7 @@ void surface_obj_bbox(float* bbox, pottoy_spec_t* spec) {
 
     bbox[3] = xyz[0];
     bbox[4] = xyz[1];
-    bbox[6] = xyz[2];
+    bbox[5] = xyz[2];
 
     for(j=0;j<n_sectors;j++) {
         double v = (((double) j)/((double) (n_sectors-1)));
@@ -1184,23 +1293,25 @@ int read_spec(char* filename, pottoy_spec_t* spec ) {
     /* Get the number of bytes */
     fseek(infile, 0L, SEEK_END);
     numbytes = ftell(infile);
-    
+    printf("need %d bytes\n",numbytes);  fflush(stdout);
     /* reset the file position indicator to 
     the beginning of the file */
     fseek(infile, 0L, SEEK_SET);	
     
     /* grab sufficient memory for the 
     buffer to hold the text */
-    buffer = (char*)calloc(numbytes, sizeof(char));	
+    buffer = (char*)calloc(numbytes+1, sizeof(char));	
     
     /* memory error */
     if(buffer == NULL)
         return 1;
     
     /* copy all the text into the buffer */
-    fread(buffer, sizeof(char), numbytes, infile);
+    int bytes_read = fread(buffer, sizeof(char), numbytes, infile);
+    buffer[numbytes]=0;
+    printf("read %d bytes\n",bytes_read);  fflush(stdout);
     fclose(infile);
-    
+    printf("buffer: %s\n",buffer); fflush(stdout);
 
 
   int a = 0, d = 0;
