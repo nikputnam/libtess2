@@ -3,6 +3,9 @@
 #ifndef _tringles_h_
 #define _tringles_h_
 
+
+#include "meshindex2d.h"
+
 typedef struct MeshTriangles
 {
 	int ntriangles;				
@@ -28,14 +31,14 @@ typedef struct Plane {
 MeshTriangles* parse_triangles(char* filename, float width) ;
 MeshTriangles* parse_triangles_internal(char* filename, float width,int with_normals, int reduplicate) ;
 MeshTriangles* parse_triangles_with_normals(char* filename, float width) ;
-void mesh_interpolation(MeshTriangles* mt, float* xy, float* uv) ;
+void mesh_interpolation(MeshTriangles* mt, float* xy, float* uv, meshindex* mi, int* hit_count) ;
 void write_to_stl( MeshTriangles* t, FILE* stlfile ) ;
 
 
 void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) ;
 void triangle_normal(float* v1, float* v2, float* v3, float *n) ;
 
-void apply_interpolation_to_mesh( MeshTriangles* texture, MeshTriangles* mt , float zscale);
+void apply_interpolation_to_mesh( MeshTriangles* texture, MeshTriangles* mt , float zscale,meshindex* mi);
 void apply_transform_to_mesh(MeshTriangles*  texture,  void(*trnsfrm)(float*, float*) );
 
 float signed_distance_to_plane(float* a, Plane* p);

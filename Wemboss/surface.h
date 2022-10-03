@@ -1,6 +1,9 @@
 #include "tesselator.h"
 #include "triangles.h"
 
+#ifndef _surface_h_
+#define _surface_h_
+
 
 void X(float* xyz, float* vtheta);
 //void Xs(float* xyz, float* uv, pottoy_spec_t* spec ) ;
@@ -80,3 +83,6 @@ void write_support_ties_stl(
        // &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3]clup
 
 void output_split_quad( float* ray1 , float* ray2 ,stl_output_config cf , int flip, float a, float b, float c, float d ) ;
+
+
+#endif

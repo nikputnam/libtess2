@@ -6,8 +6,7 @@
 #include <assert.h>
 #include "triangles.h"
 #include "vectorops.h"
-
-
+#include "meshindex2d.h"
 
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
@@ -71,7 +70,7 @@ void apply_transform_to_mesh(MeshTriangles*  t,  void(*trnsfrm)(float*, float*) 
 
 }
 
-void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater, float zscale ) {
+void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater, float zscale, meshindex* mi ) {
 
 #if 1
 
@@ -82,6 +81,8 @@ void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater,
         flags[1]=0;
     }
 
+    int n_hit = 0;
+    int n_tries = 0;
 
     for (int i=0;i<t->ntriangles;i++) {
 //        fprintf(stlfile,"triangle %d\n",i);
@@ -89,12 +90,13 @@ void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater,
         int v2 = t->triangles[i*3+1];
         int v3 = t->triangles[i*3+2];
 
-        if (!flags[v1]) { flags[v1]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v1], & t->xpoints[3*v1] ); }
-        if (!flags[v2]) { flags[v2]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v2], & t->xpoints[3*v2] ); }
-        if (!flags[v3]) { flags[v3]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v3], & t->xpoints[3*v3] ); }
+        if (!flags[v1]) { flags[v1]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v1], & t->xpoints[3*v1],mi, &n_hit ); n_tries++;}
+        if (!flags[v2]) { flags[v2]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v2], & t->xpoints[3*v2],mi, &n_hit ); n_tries++;}
+        if (!flags[v3]) { flags[v3]=1;  mesh_interpolation(interpolater, & t->xpoints[3*v3], & t->xpoints[3*v3],mi, &n_hit ); n_tries++;}
 
     }
 
+    printf("hit count: %d / %d\n",n_hit, n_tries);
 #else
     for (int i=0;i<t->nxpoints;i++) {
 
@@ -444,12 +446,12 @@ float max(float a, float b, float c  ) {
 
 //#define DEBUG_MI 
 
-void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
+void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count) {
 
 //    uv[0]=0.0;
 //    uv[1]=0.0;
 //    return;
-
+ 
     float best_mm = 1000000000.0;
     float best_u = 10.0;
     float best_v = 10.0;
@@ -460,7 +462,42 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
     float savep[2] = {p[0], p[1]};
 #endif
 
+/*
+        for(int i = 0;i<texture->ntriangles;i++) {
+            for (int j=0;j<3;j++) {
+                int a = texture->triangles[i*3 + j];
+                float x = texture->xpoints[a*3];
+                float y = texture->xpoints[a*3+1];
+                float z = texture->xpoints[a*3+2];
+
+                meshindex_it* it = index_iterator( x,y,mi );
+                printf("\n");
+                while (!it->done) { 
+                    int aa = mt->triangles[3*it->t    ];
+                    int bb = mt->triangles[3*it->t + 1];
+                    int cc = mt->triangles[3*it->t + 2];
+                    printf("triangle %d (%f,%f) index %d   (%f,%f)-(%f,%f)-(%f,%f)\n",i,x,y,it->t, 
+                        mt->points[2*aa], 
+                        mt->points[2*aa+1], 
+                        mt->points[2*bb], 
+                        mt->points[2*bb+1], 
+                        mt->points[2*cc], 
+                        mt->points[2*cc+1]
+                    );
+                    it = next_index(it);
+                }
+            }
+            
+        }*/
+
     for (int i=0; i<mt->ntriangles;i++ ) {
+
+/*
+        meshindex_it* it = index_iterator( p[0],p[1],mi );
+        int i = it->t;
+        while (!it->done) { 
+            i = it->t;
+*/
         float* a = & mt->points[ mt->triangles[i*3]*2    ];
         float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
         float* c = & mt->points[ mt->triangles[i*3+2]*2 ];
@@ -502,6 +539,7 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
 #ifdef DEBUG_MI
             printf("hit %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],savep[0],savep[1],i,u,v,w);
 #endif
+            *hit_count += 1;
             return;
         }
 
@@ -513,6 +551,8 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv) {
             best_w = w;
             best_triangle = i;
         }
+  //      it = next_index(it);
+
     }
 
     int i = best_triangle;

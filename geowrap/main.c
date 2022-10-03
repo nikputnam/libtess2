@@ -3,10 +3,10 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
+#include "meshindex2d.h"
 #include "surface.h"
 #include "triangles.h"
 #include "vectorops.h"
-#include "meshindex2d.h"
 
 
 pottoy_spec_t spec;  
@@ -430,7 +430,7 @@ int main(int argc, char *argv[])
 */
 
         printf("parsed with normals\n");  fflush(stdout);
-        apply_interpolation_to_mesh( texture, mt, 10.0 );
+        apply_interpolation_to_mesh( texture, mt, 10.0, mi );
 
         free_meshtriangles( mt ) ;
 

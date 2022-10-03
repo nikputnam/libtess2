@@ -34,7 +34,7 @@ typedef struct meshindex_it
 } meshindex_it;
 
 
-meshindex_it* next_index(meshindex_it* it) {
+static meshindex_it* next_index(meshindex_it* it) {
     int aa = it->a + it->i ;
     int bb = it->b + it->j ;
     if (aa<0) {aa=0;}
@@ -62,14 +62,14 @@ meshindex_it* next_index(meshindex_it* it) {
         kmax = it->mi->bincounts[ bb * it->mi->n_xbins + aa ];
 
     }
-    printf("ij %d %d (%d %d) k/kmax %d %d \n",it->i,it->j,aa,bb,k,kmax);
+   // printf("ij %d %d (%d %d) k/kmax %d %d \n",it->i,it->j,aa,bb,k,kmax);
     it->k = k;
     if (it->j > 1) { it->done = 1; return it; }
     it->t = it->mi->bins[ (bb * it->mi->n_xbins + aa)*it->mi->max_bin_triangles + it->k ];
     return it;
 }
 
-meshindex_it* index_iterator( float x, float y, meshindex* mi) { //}, int* k, int* r, int* c, int* status ) {
+static meshindex_it* index_iterator( float x, float y, meshindex* mi) { //}, int* k, int* r, int* c, int* status ) {
 
     meshindex_it* it = malloc(sizeof(meshindex_it));
 
@@ -106,7 +106,7 @@ meshindex_it* index_iterator( float x, float y, meshindex* mi) { //}, int* k, in
     return it;
 }
 
-meshindex* build_mesh_index( float* points, int* triangles, int n_triangles, int n_xbins, int n_ybins ) {
+static meshindex* build_mesh_index( float* points, int* triangles, int n_triangles, int n_xbins, int n_ybins ) {
 
     meshindex* mi = malloc( sizeof(meshindex) );
     mi->bincounts = malloc( sizeof(int)*(1+n_xbins)*(1+n_ybins) );
