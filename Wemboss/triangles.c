@@ -490,14 +490,14 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
             
         }*/
 
-    for (int i=0; i<mt->ntriangles;i++ ) {
+  //  for (int i=0; i<mt->ntriangles;i++ ) {
 
-/*
+
         meshindex_it* it = index_iterator( p[0],p[1],mi );
         int i = it->t;
         while (!it->done) { 
             i = it->t;
-*/
+
         float* a = & mt->points[ mt->triangles[i*3]*2    ];
         float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
         float* c = & mt->points[ mt->triangles[i*3+2]*2 ];
@@ -551,11 +551,11 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
             best_w = w;
             best_triangle = i;
         }
-  //      it = next_index(it);
+        it = next_index(it);
 
     }
 
-    int i = best_triangle;
+    i = best_triangle;
 
     float* a = & mt->points[ mt->triangles[i*3]*2    ];
     float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
