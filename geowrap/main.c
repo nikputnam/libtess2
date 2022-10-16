@@ -394,7 +394,7 @@ int main(int argc, char *argv[])
 
     if (argc>=6) {
 
-        // argv[1] -- .obj file to be wrapped
+        // argv[1] -- .obj file to be wrapped, or .svg file to be embossed
         // argv[2] -- obj file with the uv coordinates from lscm
         // argv[3] -- output stl file
         // argv[4] -- surface spec in .json

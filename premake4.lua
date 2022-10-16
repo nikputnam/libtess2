@@ -74,6 +74,19 @@ solution "libtess2"
 
 
 	-- more dynamic example
+	project "pemboss"
+	kind "ConsoleApp"
+	language "C"
+	links { "tess2" }
+	files { "pemboss/main.c", "Contrib/frozen.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
+	includedirs { "Include", "Contrib", "geowrap", "Source", "WEmboss", "/opt/homebrew/include" }
+	targetdir("Build")
+
+	configuration { "macosx" }
+	-- links { "glfw3" }
+	-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+
+	-- more dynamic example
 	project "geowrap"
 	kind "ConsoleApp"
 	language "C"

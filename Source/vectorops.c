@@ -110,3 +110,48 @@ void diff(float* x, float* y, float* z) {
 float dot(float* x, float* y) {
 	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
 }
+
+#define M(I,J) m[I*3+J]
+
+void rotationMatrix(float theta, float* u, float* m) {
+	float ux = u[0];
+	float uy = u[1];
+	float uz = u[2];
+
+    float nn = norm(u);
+    /*
+    if (fabs(nn-1.0)>0.0000001) {
+        printf("nn %f\n",nn); fflush(stdout);
+        assert(fabs(nn-1.0)<=0.00001);
+    }*/
+	M(0,0) = cos(theta)+ux*ux*(1-cos(theta));
+	M(0,1) = ux*uy*(1-cos(theta)) - uz*sin(theta);
+	M(0,2) = ux*uz*(1-cos(theta)) + uy*sin(theta) ;
+
+	M(1,0) = uy*ux*(1-cos(theta)) + uz*sin(theta);
+	M(1,1) = cos(theta)+uy*uy*(1-cos(theta));
+	M(1,2) = uy*uz*(1-cos(theta)) - ux*sin(theta) ;
+
+	M(2,0) = uz*ux*(1-cos(theta)) - uy*sin(theta);
+	M(2,1) = uz*uy*(1-cos(theta)) + ux*sin(theta) ;
+	M(2,2) = cos(theta)+uz*uz*(1-cos(theta)) ;
+
+
+
+	if (isnan(M(0,0))) {printf("M(0,0) is nan; theta=%f ux=%f uy=%f uz=%f\n",theta,ux,uy,uz);}
+	if (isnan(M(0,1))) {printf("M(0,1) is nan\n");}
+	if (isnan(M(0,2))) {printf("M(0,2) is nan\n");}
+	if (isnan(M(1,0))) {printf("M(1,0) is nan\n");}
+	if (isnan(M(1,1))) {printf("M(1,1) is nan\n");}
+	if (isnan(M(1,2))) {printf("M(1,2) is nan\n");}
+	if (isnan(M(2,0))) {printf("M(2,0) is nan\n");}
+	if (isnan(M(2,1))) {printf("M(2,1) is nan\n");}
+	if (isnan(M(2,2))) {printf("M(2,2) is nan\n");}
+
+}
+
+void matrixMultiply(float* m, float* x, float* r) {
+	r[0] = M(0,0)*x[0] + M(0,1)*x[1] + M(0,2)*x[2];
+	r[1] = M(1,0)*x[0] + M(1,1)*x[1] + M(1,2)*x[2];
+	r[2] = M(2,0)*x[0] + M(2,1)*x[1] + M(2,2)*x[2];
+}

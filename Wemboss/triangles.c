@@ -8,6 +8,34 @@
 #include "vectorops.h"
 #include "meshindex2d.h"
 
+void add_triangle(float* v1, float* v2, float* v3 , MeshTriangles* mt) {
+    printf("add triangle %d %d / %d %d\n",mt->ntriangles,mt->nxpoints, mt->max_ntriangles, mt->max_nxpoints);
+	while ((mt->nxpoints+3)>=mt->max_nxpoints) {
+		mt->max_nxpoints *= 2;		printf("more points %d\n",mt->max_nxpoints);  fflush(stdout);
+		mt->xpoints = (float*) realloc( mt->xpoints, sizeof(float)*mt->max_nxpoints*3);
+	}
+
+	while ((mt->ntriangles+1)>=mt->max_ntriangles) {
+		mt->max_ntriangles *= 2;
+		printf("more triangles %d\n",mt->max_ntriangles);
+        fflush(stdout);
+		mt->triangles = (float*) realloc( mt->triangles, sizeof(int)*mt->max_ntriangles*3);
+	}
+
+	mt->triangles[ (mt->ntriangles * 3)  ] = mt->nxpoints;
+	mt->triangles[ (mt->ntriangles * 3)+1] = mt->nxpoints+1;
+	mt->triangles[ (mt->ntriangles * 3)+2] = mt->nxpoints+2;
+	mt->ntriangles++;
+
+//    return;
+
+	set( &mt->xpoints[ (mt->nxpoints) * 3  ], v1 );
+ 	set( &mt->xpoints[ (mt->nxpoints+1) * 3  ], v2 );
+	set( &mt->xpoints[ (mt->nxpoints+2) * 3  ], v3 );
+
+	mt->nxpoints+=3;
+}
+
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
 	float a[3];
@@ -111,6 +139,18 @@ void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater,
 #endif
 }
 
+
+void write_to_obj(MeshTriangles* t, FILE* stlfile) {
+
+    for (int i=0;i<t->nxpoints;i++) {
+        fprintf(stlfile,"v %f %f %f\n",t->xpoints[i*3 + 0],t->xpoints[i*3 + 1],t->xpoints[i*3 + 2]);   
+    }
+
+    for (int i=0;i<t->ntriangles;i++) {
+        fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
+    }
+
+}
 
 void write_to_stl( MeshTriangles* t, FILE* stlfile ) {
     //FILE* stlfile = fopen(filename, "wt"); 
