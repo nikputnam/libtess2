@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
-#include <GLFW/glfw3.h>
+//#include <GLFW/glfw3.h>
 #include "nanosvg.h"
 #include "tess.h"
 #include "tesselator.h"
@@ -223,6 +223,7 @@ void transform(float* xprime, float *x) {
 	//xprime[2] = ( x[1] / cone.w ) * cone.foot;
 	//xprime[1] = ( x[2] / cone.w ) * cone.foot;
 }
+/*
 void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 
 	float a[3];
@@ -248,9 +249,9 @@ void triangle_normal(float* v1, float* v2, float* v3, float *n) {
 	n[0] /= l;
 	n[1] /= l;
 	n[2] /= l;
-}
+}*/
 
-
+/*
 void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) {
 
 
@@ -268,7 +269,7 @@ void print_triangle_raw( float* v1, float* v2, float* v3 , FILE* fp) {
 	fprintf(fp,"  endfacet\n");
 
 
-}
+}*/
 
 void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 
@@ -333,9 +334,10 @@ void print_slab_triangles(float thickness, FILE* fp) {
 
 }
 
+/*
 float dot(float* x, float* y) {
 	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
-}
+}*/
 
 void print_patch( float* x10,float* x20,float* x30, float thickness, float chamfer, FILE* fp) {
 
@@ -751,9 +753,13 @@ int main(int argc, char *argv[])
     MeshTriangles* mt = parse_triangles(argv[2],(float) width);
 	fflush(stdout);
 
+    meshindex* mi = build_mesh_index( mt->points, mt->triangles, mt->ntriangles, 100, 100 ) ;
+
+    int n_hit = 0;
+
     for (int i=0; i<n_points; i++) {
        // printf("interpolate %d %d\n",i,n_points  );
-        mesh_interpolation(mt, & path_points[2*i], & path_points[2*i] );
+        mesh_interpolation(mt, & path_points[2*i], & path_points[2*i], mi,&n_hit  );
     }
 
     printf("did mesh interpolation\n");
