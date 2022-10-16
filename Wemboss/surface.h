@@ -45,6 +45,7 @@ typedef struct pottoy_struct {
 void Xs(float* xyz, float* vtheta, pottoy_spec_t* spec );
 //int write_surface_obj2(char* fn, pottoy_spec_t* spec) ;
 int write_surface_obj2(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) ;
+int write_surface_obj0(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) ;
 
 static void scan_array(const char *str, int len, void *user_data);
 int read_spec(char* filename, pottoy_spec_t* spec );

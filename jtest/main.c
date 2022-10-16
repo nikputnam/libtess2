@@ -5,17 +5,51 @@
 #include "surface.h"
 #include "catmullrom.h"
 
+
+int print_array(struct json_out * o, va_list *ap) {
+
+  int n = va_arg(*ap, int);
+  float* xy = va_arg(*ap, float*);
+  printf("print array got %d\n",n);
+  for (int i=0; i<n-1 ; i++) {
+    printf("xy: %f %f\n",xy[0], xy[1]);
+    json_printf(o, "{x: %f, y:%f},", xy[0],xy[1]);
+    xy++; xy++;
+  }
+  json_printf(o, "{x: %f, y:%f}", xy[0],xy[1]);
+
+  return 0;
+}
+
+
 int main(int argc, char** argv) {
   //  printf("hello world\n");
     pottoy_spec_t spec;  
 
     read_spec(argv[1], &spec );
+    float scaled_height = atof(argv[3]);
+
+    //read_spec(argv[1], &spec );
     //printf("read spec with %d points\n",spec.npoints);
 
- 
+ 		float bbox[6];
+		surface_obj_bbox(&bbox[0], &spec) ;
+		printf("bbox: x:  %f - %f\n", bbox[0], bbox[3]);
+		printf("bbox: y:  %f - %f\n", bbox[1], bbox[4]);
+		printf("bbox: z:  %f - %f\n", bbox[2], bbox[5]);
+
     for (int i = 0; i< spec.npoints*2; i+=2) {
-        printf("xy %f %f\n",spec.points[i], spec.points[i+1]);
+      spec.points[i+1] -= bbox[1];
+
+      spec.points[i] *= scaled_height/(bbox[4]-bbox[1]);
+      spec.points[i+1] *= scaled_height/(bbox[4]-bbox[1]);
+      printf("xy %f %f\n",spec.points[i], spec.points[i+1]);
     }
+
+
+//    for (int i = 0; i< spec.npoints*2; i+=2) {
+ //       printf("xy %f %f\n",spec.points[i], spec.points[i+1]);
+ //   }
 
     printf("squash %f\n",spec.squash);
     printf("twist %f\n",spec.twist);
@@ -34,9 +68,14 @@ int main(int argc, char** argv) {
     printf("n_sectors = %d\n", n_sectors );
   }
 
-    write_surface_obj2(argv[2], &spec, n_sectors, 50);     
+  write_surface_obj0(argv[2], &spec, n_sectors, 50);     
 
-  //  free(buffer);
+
+
+  json_fprintf("out.json","{ n_facets:%d, facet:%B, npoints:%d, puff:%f, squash:%f, twist:%f, points:[%M] }", 
+      spec.n_facets, spec.facet, spec.npoints, spec.puff, spec.squash, spec.twist, print_array, spec.npoints, spec.points
+  );
+
 
 }
 

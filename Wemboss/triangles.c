@@ -456,7 +456,7 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
     float best_u = 10.0;
     float best_v = 10.0;
     float best_w = 10.0;
-    int best_triangle = 0;
+    int best_triangle = -1;
 
 #ifdef DEBUG_MI
     float savep[2] = {p[0], p[1]};
@@ -515,6 +515,13 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
         diff( b,a,&v1[0] );        
         diff( p,a,&v2[0] );      
 
+        if ( (dist2(a,c) > 10.0) ||(dist2(b,a) > 10.0) || (dist2(b,c) > 10.0)  ) {
+            printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
+        }
+        if ( (dist2(a,c) == 0.0) ||(dist2(b,a) == 0.0) || (dist2(b,c) == 0.0)  ) {
+            printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
+        }
+
         //float dot00 = dot2(v0, v0);
        // float dot01 = dot2(v0, v1);
        // float dot02 = dot2(v0, v2);
@@ -522,6 +529,7 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
        // float dot12 = dot2(v1, v2);
 
        // float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01) ;
+       if (( v0[0]*v1[1] - v0[1]*v1[0] )!=0.0) {
         float invDenom = 1.0 / ( v0[0]*v1[1] - v0[1]*v1[0] ) ;
 
       //  float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
@@ -551,11 +559,16 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
             best_w = w;
             best_triangle = i;
         }
+        }
         it = next_index(it);
-
     }
 
     i = best_triangle;
+    if ((i==-1)) { 
+        uv[0] = 0.0; // 1.0*(     u*x[0] + v*y[0] + w*z[0]);
+        uv[1] = 0.0; // 1.0*( u*x[1] + v*y[1] + w*z[1]);
+        return;
+    } 
 
     float* a = & mt->points[ mt->triangles[i*3]*2    ];
     float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
@@ -571,6 +584,7 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
 
     uv[0] = 1.0*(     u*x[0] + v*y[0] + w*z[0]);
     uv[1] =1.0*( u*x[1] + v*y[1] + w*z[1]);
+
 
 #ifdef DEBUG_MI
 

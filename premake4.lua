@@ -92,7 +92,7 @@ solution "libtess2"
 		kind "ConsoleApp"
 		language "C"
 		links { "tess2" }
-		files { "jtest/main.c", "Contrib/frozen.c", "WEmboss/surface.c" }
+		files { "jtest/main.c", "Contrib/frozen.c", "WEmboss/surface.c", "WEmboss/triangles.c" }
 		includedirs { "Include", "Contrib", "WEmboss", "Source", "/opt/homebrew/Cellar/glfw/3.3.7/include"}
 		targetdir("Build")
 

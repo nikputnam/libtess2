@@ -107,18 +107,18 @@ void X(float* xyz, float* vtheta) {
 }
 
 //void Xs(float* xyz, float* uv, pottoy_spec_t* spec ) {
-
 //}
-
-
 /*void spline_getPoint( float t, float* point,pottoy_spec_t*  spec ) {
- 
 }*/
 
 void sor(float* xyz, float* uv, pottoy_spec_t* spec ) {
 
     float point[2];
 //	spline_getPoint( uv[0], &point[0], spec );
+
+    if (uv[0]>1.0) {uv[0]=1.0;}
+    if (uv[0]<0.0) {uv[0]=0.0;}
+
     catmullrom2(uv[0],&spec->points[0], spec->npoints, &point[0]);
 
 	float r = point[0];
@@ -1127,6 +1127,8 @@ void surface_obj_bbox(float* bbox, pottoy_spec_t* spec) {
     }
 }
 
+
+
 // output an obj file augmented with some vertices having fixed UV coordiantes based on the parametric fn X()
 int write_surface_obj2(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) {
 
@@ -1174,6 +1176,46 @@ int write_surface_obj2(char* fn, pottoy_spec_t* spec, int n_sectors, int n_level
 #else
         fprintf(objf,"v %f %f %f\n",xyz[0],xyz[1],xyz[2]);
 #endif
+        }
+    }
+
+    for(int j=0;j<n_sectors-1;j++) {
+        for(int i=0;i<n_levels;i++) {
+            fprintf(objf, "f %d %d %d\n",j*(n_levels+1)+i+1 , j*(n_levels+1)+i+2, (j+1)*(n_levels+1)+i+1);
+            fprintf(objf, "f %d %d %d\n",i+1+(j+1)*(n_levels+1) , j*(n_levels+1)+i+2,i+2+(j+1)*(n_levels+1));
+        }  
+    }
+    fclose(objf);
+    return(0);
+}
+
+// output an obj file augmented with some vertices having fixed UV coordiantes based on the parametric fn X()
+int write_surface_obj0(char* fn, pottoy_spec_t* spec, int n_sectors, int n_levels) {
+
+    FILE* objf = fopen(fn, "wt");
+    float xyz[3];
+    float uv[2];
+
+//    int n_sectors=90;
+//    int n_levels=50;
+
+    for(int j=0;j<n_sectors;j++) {
+        double v = (((double) j)/((double) (n_sectors-1)));
+        //printf("v: %f\n",v);
+        for(int i=0;i<=n_levels;i++) {
+            double u = ((double)i)/((double) n_levels);
+            //double theta = u* 2.0*M_PI ;
+            uv[0] = (float) u;
+            uv[1] = (float) v;
+            
+//            vt[1] = (float) theta;
+            faceted_X(&xyz[0],&uv[0], spec);
+    //    printf("%f %f -> %f %f %f\n",uv[0],uv[1],xyz[0],xyz[1],xyz[2]);
+        //void Xs(float* xyz, float* vtheta, pottoy_spec_t* spec );
+
+//            Xs(&xyz[0], );
+
+        fprintf(objf,"v %f %f %f\n",xyz[0],xyz[1],xyz[2]);
         }
     }
 
