@@ -303,15 +303,15 @@ void print_triangle_bbox( float* z1, float* z2, float* z3 , FILE* fp, float* bbo
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v1[0],-v1[2],v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v2[0],-v2[2],v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],-v3[2],v3[1]);
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
     fflush(fp);
 
 }
-
+/*
 
 void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 
@@ -332,9 +332,9 @@ void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v1[0],-v1[2],v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v2[0],-v2[2],v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],-v3[2],v3[1]);
 
 //	fprintf(fp,"      vertex %f %f %f\n",v1[0],v1[1],v1[2]);
 //	fprintf(fp,"      vertex %f %f %f\n",v2[0],v2[1],v2[2]);
@@ -342,7 +342,7 @@ void print_triangle( float* z1, float* z2, float* z3 , FILE* fp) {
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
 
-}
+}*/
 
 
 int main(int argc, char *argv[])
@@ -449,8 +449,10 @@ int main(int argc, char *argv[])
         //apply_transform_to_mesh( texture, transf_X );
         //write_to_stl(texture,stlfile);
 
+            float thickness = 2.0;
+
+
         if (! mold_mode) {
-            float thickness = 20.0;
 
             float offset[3] = { 0,0,0};
             Plane clip_rs_planes[3];
@@ -504,8 +506,13 @@ int main(int argc, char *argv[])
             printf("done writing texture\n");
             fflush(stdout);
 
-            write_surface_stl( &transform, stlfile, 0, 1, thickness,&offset[0] );
-            write_texture_back_stl( &transform, stlfile, 0, 1, 0.5*thickness,&offset[0]) ;
+            stl_output_config outputcf;
+            outputcf.fp = stlfile;
+            outputcf.clipping_planes = &clip_xyz_planes[0];
+            outputcf.n_clipping_planes = 2;
+
+//            write_surface_stl( &transform, stlfile, 0, 1, thickness,&offset[0] );
+            write_texture_back_stl( &transform, 0, 1, thickness,&offset[0], outputcf) ;
 
 
             fprintf(stlfile, "endsolid x\n");
@@ -516,8 +523,8 @@ int main(int argc, char *argv[])
             return(0);
         } 
 
-            float offset_size = 50.0;
-            float thickness = 20.0;
+            float offset_size = 5.0;
+       //     float thickness = 2.0;
             float angle_pad = 0.005;
 
 
@@ -630,22 +637,17 @@ int main(int argc, char *argv[])
 
             if (quadrant>=4) {continue;}
 
-            float length = 300.0;
-            write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
-            write_texture_back_stl( &transform, stlfile, mins, maxs, 0.5*thickness,&offsets[quadrant*3]) ;
-
-          //  if (quadrant==1) {
-             //   write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 0 ,0);
-                
-                // too overhanging for 3d print?
-//                write_floor_flange_stl( &spec, stlfile, mins, maxs,length, thickness/(bbox[4]-bbox[2]),offset, 1 ,1);
-         //   }
- 
+            float length = 30.0;
 
             stl_output_config outputcf;
             outputcf.fp = stlfile;
             outputcf.clipping_planes = &clip_xyz_planes[0];
             outputcf.n_clipping_planes = 2;
+
+
+            //write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
+            write_texture_back_stl( &transform, mins, maxs, thickness,&offsets[quadrant*3], outputcf) ;
+
 
             write_parting_sufrace_stl( quadrant,   length , &spec,  outputcf, &offsets[quadrant*3], thickness, 0); 
             write_parting_sufrace_stl( quadrant-1, length , &spec,  outputcf, &offsets[quadrant*3], thickness, 1); 

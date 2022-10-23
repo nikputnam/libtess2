@@ -68,7 +68,10 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, stl
 void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) ;
 void output_triangle( float* v1, float* v2, float* v3, stl_output_config cf ) ;
 
-void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs , float thickness, float* offset) ;
+void write_texture_back_stl( void(*trnsfrm)(float*, float*), 
+            float mins, float maxs , float thickness, float* offset,
+            stl_output_config cf
+            ) ;
 
 void write_surface_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs, float thickness , float* offset) ;
 void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,float mins, float maxs ,float length, float thickness, float* offset,

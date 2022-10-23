@@ -35,6 +35,7 @@ void scale(float* p, float a) ;
 float dot2(float* x, float* y);
 
 void diff(float* x, float* y, float* z) ;
+void diff3(float* x, float* y, float* z) ;
 
 float dot(float* x, float* y) ;
 

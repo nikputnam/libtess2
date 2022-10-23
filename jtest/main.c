@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 
 
 
-  json_fprintf("out.json","{ n_facets:%d, facet:%B, npoints:%d, puff:%f, squash:%f, twist:%f, points:[%M] }", 
+  json_fprintf(argv[4],"{ n_facets:%d, facet:%B, npoints:%d, puff:%f, squash:%f, twist:%f, points:[%M] }", 
       spec.n_facets, spec.facet, spec.npoints, spec.puff, spec.squash, spec.twist, print_array, spec.npoints, spec.points
   );
 

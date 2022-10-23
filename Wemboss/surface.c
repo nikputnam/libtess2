@@ -190,9 +190,9 @@ void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
 
 	fprintf(fp,"  facet normal %f %f %f\n", n[0], n[1], n[2]);
 	fprintf(fp,"    outer loop\n");
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v1[0],-0.1*v1[2],0.1*v1[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v2[0],-0.1*v2[2],0.1*v2[1]);
-	fprintf(fp,"      vertex %f %f %f\n",0.1*v3[0],-0.1*v3[2],0.1*v3[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v1[0],-v1[2],v1[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v2[0],-v2[2],v2[1]);
+	fprintf(fp,"      vertex %f %f %f\n",v3[0],-v3[2],v3[1]);
 
 	fprintf(fp,"    endloop\n");
 	fprintf(fp,"  endfacet\n");
@@ -211,7 +211,6 @@ void output_quad( float* ray1 , float* ray2 ,  stl_output_config cf , int flip )
     }
 
 }
-
 
 void stl_printquad( float* ray1 , float* ray2 , FILE* fp, int flip ) {
 
@@ -464,6 +463,40 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, stl
     gap1 = hole_width(t,n_keys,0.3*l);
     if (gap1>0) { in_hole=1; }
 
+    if (ray1[1] < ray1[4] ) { 
+        float pv1[3];
+        float pvf[3];
+        float pvb[3];
+        diff3(&ray1[3],ray1,pv1);
+        pv1[1]=0.0;
+        normalize(pv1,pv1);
+        scale(pv1,l);
+        add(pvf,pv1,ray1);
+        add(pvb,pv1,ray1_back);
+
+//        float myhat[3] = { 0,-l,0 };
+//        add(pv1,ray1,myhat);
+//        add(pvb,ray1_back,myhat);
+        printf("wedge needed at bottom: %f < %f\n", ray1[1], ray1[4]); 
+
+        if (reverse) {
+            output_triangle( &ray1[0],pvf,&ray1[3] ,cf ); 
+            output_triangle( &ray1_back[0],&ray1_back[3],pvb ,cf ); 
+
+            output_triangle( pvf , pvb, &ray1[3],cf ); 
+            output_triangle( &ray1[3],pvb,&ray1_back[3],cf ); 
+        } else {
+            output_triangle( &ray1[0],&ray1[3],pvf ,cf ); 
+            output_triangle( &ray1_back[0],pvb,&ray1_back[3] ,cf ); 
+
+            output_triangle( pvb , pvf, &ray1[3],cf ); 
+            output_triangle( pvb,&ray1[3],&ray1_back[3],cf ); 
+//            output_triangle( &ray1_back[0],pvb,&ray1_back[3] ,cf ); 
+
+
+        }
+    }
+
     for(int i=0; i<n_segments; i++) {
        // printf("parting surface i=%d t=%f ( %f %f %f => %f %f %f\n",i,t, 
         //    ray1[0], ray1[1], ray1[2],  ray1[3], ray1[4], ray1[5] );
@@ -590,11 +623,49 @@ void write_parting_sufrace_stl( int quadrant , float l, pottoy_spec_t* spec, stl
 
         }
 
+//        if (i==n_segments-1) {        }
 
         memcpy( &ray1[0] , &ray2[0] , sizeof(float)*6 );
         memcpy( &ray1_back[0] , &ray2_back[0] , sizeof(float)*6 );
         gap1=gap2;
     }
+
+    if (ray1[1] > ray1[4] ) { 
+        float pv1[3];
+        float pvf[3];
+        float pvb[3];
+        diff3(&ray1[3],ray1,pv1);
+        pv1[1]=0.0;
+        normalize(pv1,pv1);
+        scale(pv1,l);
+        add(pvf,pv1,ray1);
+        add(pvb,pv1,ray1_back);
+
+//        float myhat[3] = { 0,-l,0 };
+//        add(pv1,ray1,myhat);
+//        add(pvb,ray1_back,myhat);
+        printf("wedge needed at bottom: %f < %f\n", ray1[1], ray1[4]); 
+
+        if (!reverse) {
+            output_triangle( &ray1[0],pvf,&ray1[3] ,cf ); 
+            output_triangle( &ray1_back[0],&ray1_back[3],pvb ,cf ); 
+
+            output_triangle( pvf , pvb, &ray1[3],cf ); 
+            output_triangle( &ray1[3],pvb,&ray1_back[3],cf ); 
+        } else {
+            output_triangle( &ray1[0],&ray1[3],pvf ,cf ); 
+            output_triangle( &ray1_back[0],pvb,&ray1_back[3] ,cf ); 
+
+            output_triangle( pvb , pvf, &ray1[3],cf ); 
+            output_triangle( pvb,&ray1[3],&ray1_back[3],cf ); 
+//            output_triangle( &ray1_back[0],pvb,&ray1_back[3] ,cf ); 
+
+
+        }
+    }
+    
+
+
 }
 
 
@@ -753,7 +824,7 @@ void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,
 }
 
 
-void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float mins, float maxs , float thickness, float* offset) {
+void write_texture_back_stl( void(*trnsfrm)(float*, float*), float mins, float maxs , float thickness, float* offset, stl_output_config cf) {
 
     int n_s_segments = 50;
     int n_t_segments = 50;
@@ -770,19 +841,17 @@ void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float
     for(int n=0; n<n_s_segments;n++) {
     for(int m=0; m<n_t_segments;m++) {
       //  printf( "nm %d %d\n", n,m );
-        
-            for(int i=0;i<=1;i++) {
-                for(int j=0;j<=1;j++) {
-                    for(int k=0;k<=1;k++) {
-                        x[  12*i + 6*j + 3*k +0 ] = (m+k)*delta_t ;
-                        x[  12*i + 6*j + 3*k +1 ] = mins + (n+j)*delta_s ;
-                        x[  12*i + 6*j + 3*k +2 ] = -(((float)i))*thickness;
-                      //  printf("x[%d] %f %d %d %d %d %d %f %f\n",12*i + 6*j + 3*k +2, x[  12*i + 6*j + 3*k +2 ] ,i,j,k,n,m,delta_t,delta_s);
-                      //  printf("%f %f %f\n",x[  12*i + 6*j + 3*k +0 ] ,x[  12*i + 6*j + 3*k +1 ] ,x[  12*i + 6*j + 3*k +2 ] );
-                    }
+    
+        for(int i=0;i<=1;i++) {
+            for(int j=0;j<=1;j++) {
+                for(int k=0;k<=1;k++) {
+                    x[  12*i + 6*j + 3*k +0 ] = (m+k)*delta_t ;
+                    x[  12*i + 6*j + 3*k +1 ] = mins + (n+j)*delta_s ;
+                    x[  12*i + 6*j + 3*k +2 ] = -(((float)i))*thickness;
                 }
             }
-        
+        }
+    
 
         for(int i=0;i<8;i++) {
         	trnsfrm(&z[3*i],&x[3*i] ) ;
@@ -790,21 +859,9 @@ void write_texture_back_stl( void(*trnsfrm)(float*, float*), FILE* stlfile,float
         }
 
        // stl_printquad( &z[0] , &z[6], stlfile, 0 ) ;
-        stl_printquad( &z[18] , &z[12], stlfile, 0 ) ;
+        output_quad( &z[18] , &z[12], cf, 0 ) ;
         //stl_printquad( &x[12] , &x[18], stlfile, 1 ) ;
 
-/*
-        if (n==0) {
-            stl_triangle( &z[ 0 ], &z[12], &z[3] ,stlfile );  //edge of the thing
-            stl_triangle( &z[ 12 ], &z[15], &z[3] ,stlfile );  //edge of the thing
-            //stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
-        }
-        if (n==n_s_segments-1) {
-            stl_triangle( &z[ 6 ], &z[9], &z[18] ,stlfile );  //edge of the thing
-            stl_triangle( &z[ 18 ], &z[9], &z[21] ,stlfile );  //edge of the thing
-            //stl_triangle( &ray2[3], &ray2_back[3], &ray1_back[3],stlfile );  //edge of the thing
-        }
-*/
     } 
     }
 

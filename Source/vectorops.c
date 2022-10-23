@@ -107,6 +107,12 @@ void diff(float* x, float* y, float* z) {
     z[1] = x[1]-y[1];
 }
 
+void diff3(float* x, float* y, float* z) {
+    z[0] = x[0]-y[0];
+    z[1] = x[1]-y[1];
+    z[2] = x[2]-y[2];
+}
+
 float dot(float* x, float* y) {
 	return ( x[0]*y[0]+x[1]*y[1]+x[2]*y[2] );
 }

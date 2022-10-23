@@ -139,17 +139,27 @@ void apply_interpolation_to_mesh( MeshTriangles* t, MeshTriangles* interpolater,
 #endif
 }
 
+void write_to_obj(MeshTriangles* t, FILE* stlfile, int yup) {
 
-void write_to_obj(MeshTriangles* t, FILE* stlfile) {
+    if (yup) {
 
-    for (int i=0;i<t->nxpoints;i++) {
-        fprintf(stlfile,"v %f %f %f\n",t->xpoints[i*3 + 0],t->xpoints[i*3 + 1],t->xpoints[i*3 + 2]);   
+        for (int i=0;i<t->nxpoints;i++) {
+            fprintf(stlfile,"v %f %f %f\n",t->xpoints[i*3 + 0],t->xpoints[i*3 + 2],-t->xpoints[i*3 + 1]);   
+        }
+
+        for (int i=0;i<t->ntriangles;i++) {
+            fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
+        }
+
+    } else {
+        for (int i=0;i<t->nxpoints;i++) {
+            fprintf(stlfile,"v %f %f %f\n",t->xpoints[i*3 + 0],t->xpoints[i*3 + 1],t->xpoints[i*3 + 2]);   
+        }
+
+        for (int i=0;i<t->ntriangles;i++) {
+            fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
+        }
     }
-
-    for (int i=0;i<t->ntriangles;i++) {
-        fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
-    }
-
 }
 
 void write_to_stl( MeshTriangles* t, FILE* stlfile ) {
@@ -326,15 +336,27 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
         if (strncmp(line,"f ",2)==0) { 
             int a,b,c,x,y,z, n1,n2,n3;
             
-            if (with_normals) {
-                sscanf(line,"f %d/%d/%d %d/%d/%d %d/%d/%d",&a,&x,&n1,&b,&y,&n2,&c,&z,&n3);
-            } else {
-                sscanf(line,"f %d/%d %d/%d %d/%d",&a,&x,&b,&y,&c,&z);
+            if ( 9==sscanf(line,"f %d/%d/%d %d/%d/%d %d/%d/%d",&a,&x,&n1,&b,&y,&n2,&c,&z,&n3) ) {
+                
+            mt->ttriangles[m++]=x-1;
+            mt->ttriangles[m++]=y-1;
+            mt->ttriangles[m++]=z-1;
+
+            } else if (  
+                6==sscanf(line,"f %d/%d %d/%d %d/%d",&a,&x,&b,&y,&c,&z)
+            ) {
+
+            mt->ttriangles[m++]=x-1;
+            mt->ttriangles[m++]=y-1;
+            mt->ttriangles[m++]=z-1;
+
+            } else if (
+                3==sscanf(line,"f %d %d %d",&a,&b,&c)
+
+            ) {
+
             }
-            //flip triangles
-//            sscanf(line,"f %d/%d %d/%d %d/%d",&c,&z,&b,&y,&a,&x);
-//            sscanf(line,"f %d/%d %d/%d %d/%d",&c,&x,&b,&y,&a,&z);
-            //printf("%d %d %d %s\n",a,b,c,line);
+
             mt->triangles[j++]=a-1;
             mt->triangles[j++]=b-1;
             mt->triangles[j++]=c-1;
@@ -343,20 +365,8 @@ MeshTriangles* parse_triangles_internal(char* filename, float width, int with_no
             maxtp = maxtp < b-1 ? b-1 : maxtp;
             maxtp = maxtp < c-1 ? c-1 : maxtp;
 
-            mt->ttriangles[m++]=x-1;
-            mt->ttriangles[m++]=y-1;
-            mt->ttriangles[m++]=z-1;
 
-/*
-            mt->paths[k++] = mt->tpoints[2*(x-1)];
-            mt->paths[k++] = mt->tpoints[2*(x-1)+1];
-            mt->paths[k++] = mt->tpoints[2*(y-1)];
-            mt->paths[k++] = mt->tpoints[2*(y-1)+1];
-            mt->paths[k++] = mt->tpoints[2*(z-1)];
-            mt->paths[k++] = mt->tpoints[2*(z-1)+1];
-*/
-//            mt->points[i++]=y;
- //           ntriangles++;
+
         }
     }
 
@@ -555,12 +565,14 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
         diff( b,a,&v1[0] );        
         diff( p,a,&v2[0] );      
 
+/*
         if ( (dist2(a,c) > 10.0) ||(dist2(b,a) > 10.0) || (dist2(b,c) > 10.0)  ) {
             printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
         }
         if ( (dist2(a,c) == 0.0) ||(dist2(b,a) == 0.0) || (dist2(b,c) == 0.0)  ) {
             printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
         }
+        */
 
         //float dot00 = dot2(v0, v0);
        // float dot01 = dot2(v0, v1);

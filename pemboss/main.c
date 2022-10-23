@@ -110,6 +110,9 @@ void add_wedge(float* x20, float* x10,float thickness, float chamfer, MeshTriang
 	set(&x1[0],x10);
 	set(&x2[0],x20);
 
+    x1[2] += thickness ;
+    x2[2] += thickness ;
+
 	if (vequal3(x1,x2)) { return;}
 	//if (vequal3(x2,x3)) {printf("x2==x3 nan\n"); return;}
 
@@ -139,7 +142,7 @@ void add_wedge(float* x20, float* x10,float thickness, float chamfer, MeshTriang
 	matrixMultiply(&m[0],&normal2[0],&chamfer_v2[0]);
    // printf("chamfer_v: %f %f %f \n",chamfer_v[0],chamfer_v[1],chamfer_v[2]); //,x2[0],x2[1],x2[2]);
 
-	float r = thickness / cos(chamfer);
+	float r = 0.95*thickness / cos(chamfer);
     //r = thickness;
 	//float v1[3] = { last_x, last_y, 0 } ;
 	//float v2[3] = { this_x, this_y, 0 } ;
@@ -166,13 +169,13 @@ void add_wedge(float* x20, float* x10,float thickness, float chamfer, MeshTriang
 
 }
 
-void add_quad(float this_x, float this_y, float last_x, float last_y, float thickness, MeshTriangles* mt) {
+void add_quad(float last_x, float last_y, float this_x, float this_y, float thickness, MeshTriangles* mt) {
 
-
-	float v1[3] = { last_x, last_y, 0.0 } ;
-	float v2[3] = { this_x, this_y, 0.0 } ;
-	float v3[3] = { last_x , last_y , -thickness  } ;
-	float v4[3] = { this_x , this_y , -thickness  } ;
+//    return;
+	float v1[3] = { last_x, last_y, 0.05*thickness } ;
+	float v2[3] = { this_x, this_y, 0.05*thickness } ;
+	float v3[3] = { last_x , last_y , thickness  } ;
+	float v4[3] = { this_x , this_y , thickness  } ;
 
 
 	add_triangle(v1,v3,v2, mt); 
@@ -181,7 +184,7 @@ void add_quad(float this_x, float this_y, float last_x, float last_y, float thic
 }
 void add_patch( float* x30,float* x20,float* x10, float thickness, float chamfer, MeshTriangles* mt) {
 
-
+//    return;
 	float x1[3];// = { x10[0], x10[1], 0 };
 	float x2[3];// = { x20[0], x20[1], 0 };
 	float x3[3];// = { x20[0], x20[1], 0 };
@@ -194,6 +197,10 @@ void add_patch( float* x30,float* x20,float* x10, float thickness, float chamfer
 	set(&x1[0],x10);
 	set(&x2[0],x20);
 	set(&x3[0],x30);
+
+    x1[2] += thickness ;
+    x2[2] += thickness ;
+    x3[2] += thickness ;
 
 	if (vequal3(x1,x2)) { return;}
 	if (vequal3(x2,x3)) { return;}
@@ -259,7 +266,7 @@ void add_patch( float* x30,float* x20,float* x10, float thickness, float chamfer
 	if (isnan(chamfer_v1[0])) {printf("chamfer_v1[0] is nan\n");}
 	if (isnan(chamfer_v2[0])) {printf("chamfer_v2[0] is nan\n");}
 
-	float r = thickness / cos(chamfer);
+	float r = 0.95*thickness / cos(chamfer);
     //printf("r: %f \t %f \t %f\n",r,thickness,chamfer);
 	float v1[3] = { x2[0], x2[1], x2[2] } ;
 	//float v2[3] = { this_x, this_y, 0 } ;
@@ -336,7 +343,6 @@ void idTransform(float* xprime, float *x) {
 
 //}
 
-
 int main(int argc, char *argv[]) {
     FILE* stlfile;
     float thickness = 5.0;
@@ -353,11 +359,12 @@ int main(int argc, char *argv[]) {
 	int n_paths = 0;
     int ppi = 0;
 
-    	float bounds[4];
-	float chamfer  = ( (M_PI* 45.0 )/180.0); 
+    float bounds[4];
+	float chamfer  = ( (M_PI* 60.0 )/180.0); 
 	//coneParams cone;
 
-	int width,height,i,j;
+	float width,height;
+    int i,j;
 	//float fb[8]  ;
     	float cx,cy;
 
@@ -417,9 +424,8 @@ int main(int argc, char *argv[]) {
 
 					if (!done_init) {
 						done_init = 1;
-						//printf("init\n");
-							bounds[0] = bounds[2] = x;
-							bounds[1] = bounds[3] = y;
+						bounds[0] = bounds[2] = x;
+						bounds[1] = bounds[3] = y;
 					} 
 
 					np+=1;
@@ -450,7 +456,13 @@ int main(int argc, char *argv[]) {
 	width = bounds[2]-bounds[0]; 
 	height = bounds[3]-bounds[1];
 
-    printf("hello world\n");
+
+    for (int i=0;i<n_points;i++ ) {
+        path_points[2*i+1] = height - path_points[2*i+1];
+    }
+
+    printf("bounts %f %f %f %f \n",bounds[0],bounds[1],bounds[2],bounds[3]);
+    printf("width: %f ; height: %f\n",width,height);
 
 
     // now triangulate
@@ -509,6 +521,7 @@ int main(int argc, char *argv[]) {
 //			printf("x:\nx:\n");
 //			for (int i = 0; i < path->npts; ++i) {
 	
+#define REVERSE_PATTERN_CONTOURS 1
 #if REVERSE_PATTERN_CONTOURS
                 tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
 #endif
@@ -517,7 +530,7 @@ int main(int argc, char *argv[]) {
 			tessAddContour(tess, 2, &path_points[ path_offsets[i] ] , sizeof(float)*2, path_lengths[i]);
 		}
 #if REVERSE_PATTERN_CONTOURS
-                tessSetOption(tess,TESS_REVERSE_CONTOURS,1);
+                tessSetOption(tess,TESS_REVERSE_CONTOURS,0);
 #endif
 
 
@@ -736,10 +749,10 @@ int main(int argc, char *argv[]) {
 						
 						if (fabs(chamfer)>0.001) {
 						//	printf("chamfer %f\n",chamfer) ;
-							add_wedge(&x2[0],&x1[0],1.1*thickness,chamfer,&mt);
+							add_wedge(&x2[0],&x1[0],1.0*thickness,chamfer,&mt);
 						} 
 #endif					
-						add_quad( x1[0], x1[1], x2[0], x2[1], 1.1*thickness, &mt);
+						add_quad( x1[0], x1[1], x2[0], x2[1], 1.0*thickness, &mt);
 						}
 #endif
 					}
@@ -783,7 +796,7 @@ int main(int argc, char *argv[]) {
 							//if (dist22(&x2[0],&x1[0])==0.0) {fprintf(stlfile,"x2==x1\n");}
 							//if (dist22(&x2[0],&x3[0])==0.0) {fprintf(stlfile,"x2==x3\n");}
 							//fprintf(stlfile,"patch %d %d\n",i,j);
-							add_patch( x3,x2,x1, 1.1*thickness, chamfer, &mt);
+							add_patch( x3,x2,x1,thickness, chamfer, &mt);
 						}
 #endif
 					}
@@ -867,16 +880,16 @@ int main(int argc, char *argv[]) {
 
 						const int* p = &elems[i*nvp];
 
-						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],0.0*thickness };
-						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],0.0*thickness };
-						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],0.0*thickness };
+						float v1[3] = { verts[p[0]*2],verts[p[0]*2+1],1.0*thickness };
+						float v2[3] = { verts[p[1]*2],verts[p[1]*2+1],1.0*thickness };
+						float v3[3] = { verts[p[2]*2],verts[p[2]*2+1],1.0*thickness };
 
 //						print_triangle(v1,v2,v3, stlfile);
                         add_triangle(v1,v3,v2,&mt);
 
-						v1[2] = -1.1*thickness;
-						v2[2] = -1.1*thickness;
-						v3[2] = -1.1*thickness;
+						v1[2] = 0.05*thickness;
+						v2[2] = 0.05*thickness;
+						v3[2] = 0.05*thickness;
 
 //						print_triangle(v1,v3,v2, stlfile);
                         add_triangle(v1,v2,v3,&mt);
@@ -910,10 +923,11 @@ int main(int argc, char *argv[]) {
 				}
 		}
 	
-      add_surface( n_sectors, n_levels, width, height,&mt, -thickness, 1) ;
-      add_surface( n_sectors, n_levels, width, height,&mt, -thickness-0.5, 0) ;
+      add_surface( n_sectors, n_levels, width, height,&mt,  0.1*thickness, 1) ;
+      add_surface( n_sectors, n_levels, width, height,&mt, -0.3*thickness, 0) ;
 
-    write_to_obj(&mt,stlfile);
+#define YUP 1
+    write_to_obj(&mt,stlfile,YUP);
 
 
     }
