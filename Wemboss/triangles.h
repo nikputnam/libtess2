@@ -63,5 +63,7 @@ void segment_plane_intersection( float* a, float* b, float* q, Plane* p ) ;
 
 int add_side_quad( float* triangle ,  Plane* p, float* new_triangles, float droplevel );
 void free_meshtriangles( MeshTriangles* mt ) ;
+float mesh_width(MeshTriangles* mt);
+
 
 #endif

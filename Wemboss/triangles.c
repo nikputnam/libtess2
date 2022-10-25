@@ -203,6 +203,34 @@ void free_meshtriangles( MeshTriangles* mt ) {
     free(mt);
 }
 
+float mesh_width(MeshTriangles* mesh) {
+//    float w=0;
+    float minx = mesh->xpoints[0];
+    float maxx = mesh->xpoints[0];
+
+
+    for (int i=0; i<mesh->ntriangles; i++) {
+        int v1 = mesh->triangles[i*3];
+        int v2 = mesh->triangles[i*3+1];
+        int v3 = mesh->triangles[i*3+2];
+
+        float* x1 = &mesh->xpoints[v1*3];
+        float* x2 = &mesh->xpoints[v2*3];
+        float* x3 = &mesh->xpoints[v3*3];
+
+        if (minx > x1[0]) {minx = x1[0];} 
+        if (minx > x2[0]) {minx = x2[0];} 
+        if (minx > x3[0]) {minx = x3[0];} 
+        if (maxx < x1[0]) {maxx = x1[0];} 
+        if (maxx < x2[0]) {maxx = x2[0];} 
+        if (maxx < x3[0]) {maxx = x3[0];} 
+
+    }
+
+    return (maxx-minx);
+}
+
+
 MeshTriangles* parse_triangles_internal(char* filename, float width, int with_normals, int reduplicate) {
 
     MeshTriangles* mt = malloc(sizeof(MeshTriangles));
