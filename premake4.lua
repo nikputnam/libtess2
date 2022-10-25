@@ -86,6 +86,20 @@ solution "libtess2"
 	-- links { "glfw3" }
 	-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
 
+
+	-- more dynamic example
+	project "cylzip"
+	kind "ConsoleApp"
+	language "C"
+	links { "tess2" }
+	files { "cylzip/main.c", "Contrib/frozen.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
+	includedirs { "Include", "Contrib", "geowrap", "Source", "WEmboss", "/opt/homebrew/include" }
+	targetdir("Build")
+
+	configuration { "macosx" }
+		-- links { "glfw3" }
+		-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+
 	-- more dynamic example
 	project "geowrap"
 	kind "ConsoleApp"
@@ -99,6 +113,18 @@ solution "libtess2"
 		-- links { "glfw3" }
 		-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
 
+	-- more dynamic example
+	project "meshwrap"
+	kind "ConsoleApp"
+	language "C"
+	links { "tess2" }
+	files { "meshwrap/main.c", "Contrib/frozen.c", "WEmboss/triangles.c", "WEmboss/surface.c" }
+	includedirs { "Include", "Contrib", "geowrap", "Source", "WEmboss", "/opt/homebrew/include" }
+	targetdir("Build")
+
+	configuration { "macosx" }
+		-- links { "glfw3" }
+		-- linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
 
 	-- more dynamic example
 	project "jtest"
