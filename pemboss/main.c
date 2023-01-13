@@ -350,6 +350,8 @@ int main(int argc, char *argv[]) {
 	bg = nsvgParseFromFile(argv[1], "px", 98.0f);
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 
+    int tops_only = argc > 3 ? 1 : 0;
+
     	int np = 0;
 	int done_init=0;
 
@@ -478,6 +480,8 @@ int main(int argc, char *argv[]) {
 
     FILE* stlfile = fopen(argv[2], "wt"); 
 	fprintf(stlfile,"solid x\n");
+
+
 
     int n_sectors = 90;
     int n_levels = 50;
@@ -716,6 +720,7 @@ int main(int argc, char *argv[]) {
 				}
 
 				//side walls 
+                if (!tops_only) {
 				for (i = 0; i < nelems; ++i)
 				{
 					int b = elems[i*2];
@@ -802,7 +807,7 @@ int main(int argc, char *argv[]) {
 					}
 
 				}
-
+                }
 
 			//for (it = bg; it != NULL; it = it->next)
 			//	tessAddContour(tess, 2, it->pts, sizeof(float)*2, it->npts);
@@ -891,9 +896,10 @@ int main(int argc, char *argv[]) {
 						v2[2] = 0.05*thickness;
 						v3[2] = 0.05*thickness;
 
+                        if (!tops_only) {
 //						print_triangle(v1,v3,v2, stlfile);
                         add_triangle(v1,v2,v3,&mt);
-
+                        }
 					}
 #endif
 
@@ -923,8 +929,8 @@ int main(int argc, char *argv[]) {
 				}
 		}
 	
-      add_surface( n_sectors, n_levels, width, height,&mt,  0.1*thickness, 1) ;
-      add_surface( n_sectors, n_levels, width, height,&mt, -0.3*thickness, 0) ;
+      add_surface( n_sectors, n_levels, width, height,&mt,  0.5*thickness, 1) ;
+      add_surface( n_sectors, n_levels, width, height,&mt, -0.4*thickness, 0) ;
 
 #define YUP 1
     write_to_obj(&mt,stlfile,YUP);

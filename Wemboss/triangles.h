@@ -40,6 +40,8 @@ MeshTriangles* parse_triangles(char* filename, float width) ;
 MeshTriangles* parse_triangles_internal(char* filename, float width,int with_normals, int reduplicate) ;
 MeshTriangles* parse_triangles_with_normals(char* filename, float width) ;
 void mesh_interpolation(MeshTriangles* mt, float* xy, float* uv, meshindex* mi, int* hit_count) ;
+void mesh_interpolation_xyz(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count) ;
+
 void write_to_stl( MeshTriangles* t, FILE* stlfile ) ;
 void write_to_obj(MeshTriangles* t, FILE* stlfile, int yup) ;
 

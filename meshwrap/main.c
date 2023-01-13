@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
         // argv[3] -- output stl file
  
         FILE* stlfile = fopen(argv[3], "wt"); 
-	    fprintf(stlfile,"solid x\n");
+//	    fprintf(stlfile,"solid x\n");
 
         MeshTriangles* texture = parse_triangles_with_normals(argv[1],(float) 1.0);
         if (texture == NULL) {return 1;} 
@@ -375,12 +375,22 @@ int main(int argc, char *argv[])
 
         MeshTriangles* mt = parse_triangles_with_normals(argv[2],width);
         if (mt == NULL) {return 1;} 
+        meshindex* mi = build_mesh_index( mt->points, mt->triangles, mt->ntriangles, 10, 10 ) ;
 
         printf("parsed\n");
 //        return(0);
 
+        for (int i=0;i<texture->nxpoints;i++) {
+            int hc=0;
+           mesh_interpolation_xyz(mt,&texture->xpoints[i*3], &texture->xpoints[i*3],mi,&hc );    
+           if (0==i%10000) {printf("p %d/%d  %f\n",i,texture->nxpoints, (((float ) i)/((float) texture->nxpoints)));}        
+        }
 
 
+        write_to_obj( texture, stlfile, 0) ;
+
+
+        fclose(stlfile);
         free_meshtriangles( mt ) ;
 
         free_meshtriangles( texture ) ;

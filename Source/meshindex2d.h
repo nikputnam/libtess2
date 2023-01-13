@@ -33,7 +33,7 @@ typedef struct meshindex_it
     int done;
 } meshindex_it;
 
-
+#define DEBUG_NEXT 0
 static meshindex_it* next_index(meshindex_it* it) {
     int aa = it->a + it->i ;
     int bb = it->b + it->j ;
@@ -42,12 +42,20 @@ static meshindex_it* next_index(meshindex_it* it) {
     if (bb<0) {bb=0;}
     if (bb>=it->mi->n_ybins) {bb=it->mi->n_xbins-1;}
 
+
     int k = it->k;
     int kmax = it->mi->bincounts[ bb * it->mi->n_xbins + aa ];
+
+#if DEBUG_NEXT
+    printf("next index aa,bb= %d,%d ; k=%d kmax=%d\n",aa,bb,k,kmax);
+#endif
+
     k++;
     while (k >= kmax) {
         k=0;
         it->i += 1; if ( it->i > 1 ) { it->i = -1; it->j += 1; } 
+
+
         if (it->j > 1) { it->done = 1; return it; }
 
 
@@ -60,6 +68,11 @@ static meshindex_it* next_index(meshindex_it* it) {
         if (bb>=it->mi->n_ybins) {bb=it->mi->n_xbins-1;}
 
         kmax = it->mi->bincounts[ bb * it->mi->n_xbins + aa ];
+
+#if DEBUG_NEXT
+    printf("      i,j %d %d  kmax=%d\n",it->i, it->j, kmax);
+#endif
+
 
     }
    // printf("ij %d %d (%d %d) k/kmax %d %d \n",it->i,it->j,aa,bb,k,kmax);

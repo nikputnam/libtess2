@@ -148,7 +148,15 @@ void write_to_obj(MeshTriangles* t, FILE* stlfile, int yup) {
         }
 
         for (int i=0;i<t->ntriangles;i++) {
-            fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
+            int a = t->triangles[i*3 + 0];
+            int b = t->triangles[i*3 + 1];
+            int c = t->triangles[i*3 + 2];
+            if (
+                (t->xpoints[a*3 + 0]==0 && t->xpoints[a*3 + 1]==0 && t->xpoints[a*3 + 2]==0) || 
+                (t->xpoints[b*3 + 0]==0 && t->xpoints[b*3 + 1]==0 && t->xpoints[b*3 + 2]==0) || 
+                (t->xpoints[c*3 + 0]==0 && t->xpoints[c*3 + 1]==0 && t->xpoints[c*3 + 2]==0)
+            ) {continue;}
+            fprintf(stlfile,"f %d %d %d\n",1+a,1+b,1+c);   
         }
 
     } else {
@@ -157,7 +165,15 @@ void write_to_obj(MeshTriangles* t, FILE* stlfile, int yup) {
         }
 
         for (int i=0;i<t->ntriangles;i++) {
-            fprintf(stlfile,"f %d %d %d\n",1+t->triangles[i*3 + 0],1+t->triangles[i*3 + 1],1+t->triangles[i*3 + 2]);   
+            int a = t->triangles[i*3 + 0];
+            int b = t->triangles[i*3 + 1];
+            int c = t->triangles[i*3 + 2];
+            if (
+                (t->xpoints[a*3 + 0]==0 && t->xpoints[a*3 + 1]==0 && t->xpoints[a*3 + 2]==0) || 
+                (t->xpoints[b*3 + 0]==0 && t->xpoints[b*3 + 1]==0 && t->xpoints[b*3 + 2]==0) || 
+                (t->xpoints[c*3 + 0]==0 && t->xpoints[c*3 + 1]==0 && t->xpoints[c*3 + 2]==0)
+            ) {continue;}
+            fprintf(stlfile,"f %d %d %d\n",1+a,1+b,1+c);   
         }
     }
 }
@@ -523,67 +539,53 @@ float max(float a, float b, float c  ) {
 }
 
 //#define DEBUG_MI 
+void mesh_interpolation_internal(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count, int xyz, int hit_only) ;
 
 void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count) {
+    mesh_interpolation_internal(mt, p, uv, mi, hit_count, 0, 0);
+}
 
-//    uv[0]=0.0;
-//    uv[1]=0.0;
-//    return;
- 
+void mesh_interpolation_xyz(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count) {
+    mesh_interpolation_internal(mt, p, uv, mi, hit_count, 1, 1);
+}
+
+void mesh_interpolation_internal(MeshTriangles* mt, float* p, float* uv, meshindex* mi, int* hit_count, int xyz, int hit_only) {
+
     float best_mm = 1000000000.0;
     float best_u = 10.0;
     float best_v = 10.0;
     float best_w = 10.0;
     int best_triangle = -1;
+    float nn[3];
 
+    float *x, *y, *z;
+    int n_its=0;
+    float h;
+
+    if (xyz) {h = p[2];} 
 #ifdef DEBUG_MI
     float savep[2] = {p[0], p[1]};
 #endif
 
-/*
-        for(int i = 0;i<texture->ntriangles;i++) {
-            for (int j=0;j<3;j++) {
-                int a = texture->triangles[i*3 + j];
-                float x = texture->xpoints[a*3];
-                float y = texture->xpoints[a*3+1];
-                float z = texture->xpoints[a*3+2];
-
-                meshindex_it* it = index_iterator( x,y,mi );
-                printf("\n");
-                while (!it->done) { 
-                    int aa = mt->triangles[3*it->t    ];
-                    int bb = mt->triangles[3*it->t + 1];
-                    int cc = mt->triangles[3*it->t + 2];
-                    printf("triangle %d (%f,%f) index %d   (%f,%f)-(%f,%f)-(%f,%f)\n",i,x,y,it->t, 
-                        mt->points[2*aa], 
-                        mt->points[2*aa+1], 
-                        mt->points[2*bb], 
-                        mt->points[2*bb+1], 
-                        mt->points[2*cc], 
-                        mt->points[2*cc+1]
-                    );
-                    it = next_index(it);
-                }
-            }
-            
-        }*/
-
-  //  for (int i=0; i<mt->ntriangles;i++ ) {
-
-
-        meshindex_it* it = index_iterator( p[0],p[1],mi );
-        int i = it->t;
-        while (!it->done) { 
-            i = it->t;
+    meshindex_it* it = index_iterator( p[0],p[1],mi );
+    int i = it->t;
+    while (!it->done) { 
+        n_its++;
+        i = it->t;
 
         float* a = & mt->points[ mt->triangles[i*3]*2    ];
         float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
         float* c = & mt->points[ mt->triangles[i*3+2]*2 ];
 
-
-        float* x = & mt->tpoints[ mt->ttriangles[i*3]*2    ];
-        float* y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
-        float* z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
+        if (xyz) {
+            x = & mt->xpoints[ mt->triangles[i*3]*3   ];
+            y = & mt->xpoints[ mt->triangles[i*3+1]*3 ];
+            z = & mt->xpoints[ mt->triangles[i*3+2]*3 ];
+        } else {
+            x = & mt->tpoints[ mt->ttriangles[i*3]*2   ];
+            y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
+            z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
+        }
 
         float v0[2];
         float v1[2];
@@ -593,64 +595,69 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
         diff( b,a,&v1[0] );        
         diff( p,a,&v2[0] );      
 
-/*
-        if ( (dist2(a,c) > 10.0) ||(dist2(b,a) > 10.0) || (dist2(b,c) > 10.0)  ) {
-            printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
-        }
-        if ( (dist2(a,c) == 0.0) ||(dist2(b,a) == 0.0) || (dist2(b,c) == 0.0)  ) {
-            printf("suspicious triangle %d (%f,%f)-(%f,%f)-(%f,%f)\n",i, a[0],a[1],b[0],b[1],c[0],c[1]);
-        }
-        */
-
-        //float dot00 = dot2(v0, v0);
-       // float dot01 = dot2(v0, v1);
-       // float dot02 = dot2(v0, v2);
-       // float dot11 = dot2(v1, v1);
-       // float dot12 = dot2(v1, v2);
-
-       // float invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01) ;
        if (( v0[0]*v1[1] - v0[1]*v1[0] )!=0.0) {
-        float invDenom = 1.0 / ( v0[0]*v1[1] - v0[1]*v1[0] ) ;
+            float invDenom = 1.0 / ( v0[0]*v1[1] - v0[1]*v1[0] ) ;
 
-      //  float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-      //  float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-      //  float w = 1.0 - u - v;
+            float w = (v2[0] * v1[1] - v2[1]*v1[0]) * invDenom;
+            float v = (v0[0] * v2[1] - v0[1]*v2[0]) * invDenom;
+            float u = 1.0 - v - w;
 
-        float w = (v2[0] * v1[1] - v2[1]*v1[0]) * invDenom;
-        float v = (v0[0] * v2[1] - v0[1]*v2[0]) * invDenom;
-        float u = 1.0 - v - w;
+            if ((u>=0.0) && (v>=0.0) && (w>=0.0)) { 
+                
+                uv[0] =      u*x[0] + v*y[0] + w*z[0] ;
+                uv[1] =      u*x[1] + v*y[1] + w*z[1] ;
+                if (xyz) {
+                    uv[2] =      u*x[2] + v*y[2] + w*z[2] ;
 
+//                    triangle_normal(x, y, z, &nn[0]) ;
+//                    scale(&nn[0],0.02*h);
+//                    add( &uv[0], &uv[0], &nn[0] );
+                } 
+                
+    #ifdef DEBUG_MI
+                printf("hit %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],savep[0],savep[1],i,u,v,w);
+    #endif
+                *hit_count += 1;
+                return;
+            }
 
-        if ((u>=0.0) && (v>=0.0) && (w>=0.0)) { 
-            uv[0] =      u*x[0] + v*y[0] + w*z[0];
-            uv[1] =1.0*( u*x[1] + v*y[1] + w*z[1]);
+            float mm = max(fabs(0.5-u),fabs(0.5-v),fabs(0.5-w));
+            if (mm<best_mm) {
+                best_mm = mm;
+                best_u = u;
+                best_v = v;
+                best_w = w;
+                best_triangle = i;
+            }
+        } else {
 #ifdef DEBUG_MI
-            printf("hit %f %f <- %f %f ; %d %f %f %f\n", uv[0],uv[1],savep[0],savep[1],i,u,v,w);
+            printf("wtf?  zero size texture coords triangle?\n");
 #endif
-            *hit_count += 1;
-            return;
-        }
 
-        float mm = max(fabs(0.5-u),fabs(0.5-v),fabs(0.5-w));
-        if (mm<best_mm) {
-            best_mm = mm;
-            best_u = u;
-            best_v = v;
-            best_w = w;
-            best_triangle = i;
-        }
         }
         it = next_index(it);
     }
 
     i = best_triangle;
-    if ((i==-1)) { 
+
+#ifdef DEBUG_MI
+    printf("n_its: %d;  i=%d (%f %f %f)\n", n_its,i,best_u,best_v,best_w); //o best triangle: %f %f\n", savep[0],savep[1]);
+#endif
+    
+    if (hit_only||(i==-1)) { 
+
+#ifdef DEBUG_MI
+    printf("no best triangle: %f %f\n", savep[0],savep[1]);
+#endif
+
+//        return;
         uv[0] = 0.0; // 1.0*(     u*x[0] + v*y[0] + w*z[0]);
         uv[1] = 0.0; // 1.0*( u*x[1] + v*y[1] + w*z[1]);
+        if (xyz) { uv[2]=0.0; }
         return;
     } 
 
-    float* a = & mt->points[ mt->triangles[i*3]*2    ];
+    float* a = & mt->points[ mt->triangles[i*3]*2   ];
     float* b = & mt->points[ mt->triangles[i*3+1]*2 ];
     float* c = & mt->points[ mt->triangles[i*3+2]*2 ];
 
@@ -658,22 +665,30 @@ void mesh_interpolation(MeshTriangles* mt, float* p, float* uv, meshindex* mi, i
     float v = best_v;
     float w = best_w;
 
-    float* x = & mt->tpoints[ mt->ttriangles[i*3]*2   ];
-    float* y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
-    float* z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
+    if (xyz) {
+        x = & mt->xpoints[ mt->triangles[i*3]*3   ];
+        y = & mt->xpoints[ mt->triangles[i*3+1]*3 ];
+        z = & mt->xpoints[ mt->triangles[i*3+2]*3 ];
+    } else {
+        x = & mt->tpoints[ mt->ttriangles[i*3]*2   ];
+        y = & mt->tpoints[ mt->ttriangles[i*3+1]*2 ];
+        z = & mt->tpoints[ mt->ttriangles[i*3+2]*2 ];
+    }
 
-    uv[0] = 1.0*(     u*x[0] + v*y[0] + w*z[0]);
-    uv[1] =1.0*( u*x[1] + v*y[1] + w*z[1]);
-
+    uv[0] = (     u*x[0] + v*y[0] + w*z[0]);
+    uv[1] = (     u*x[1] + v*y[1] + w*z[1]);
+    if (xyz) {
+        uv[2] = (     u*x[2] + v*y[2] + w*z[2]);
+    }
 
 #ifdef DEBUG_MI
 
-    printf("best mm: %f %f ; %d %f %f %f ( %f , %f ) %f %f ; %f %f ; %f %f \n",uv[0], uv[1], i,u,v,w, savep[0],savep[1], a[0], a[1], b[0], b[1], c[0], c[1]);
+    printf("best mm: %f %f ; %d %f %f %f ( %f , %f ) %f %f ; %f %f ; %f %f %d \n",
+    uv[0], uv[1], i,u,v,w, savep[0],savep[1], a[0], a[1], b[0], b[1], c[0], c[1], n_its);
 #endif
 
     return;
     
-
 }
 
 

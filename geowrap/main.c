@@ -645,7 +645,7 @@ int main(int argc, char *argv[])
             outputcf.n_clipping_planes = 2;
 
 
-            //write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
+       //     write_surface_stl( &transform, stlfile, mins, maxs, thickness,&offsets[quadrant*3] );
             write_texture_back_stl( &transform, mins, maxs, thickness,&offsets[quadrant*3], outputcf) ;
 
 
