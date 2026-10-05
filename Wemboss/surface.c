@@ -203,8 +203,11 @@ void stl_triangle( float* v1, float* v2, float* v3, FILE* fp ) {
 void output_quad( float* ray1 , float* ray2 ,  stl_output_config cf , int flip ) {
 
     if (flip) {
-        output_triangle( &ray1[0], &ray1[3], &ray2[3] ,cf );
-        output_triangle( &ray1[0], &ray2[3], &ray2[0] ,cf );
+//        output_triangle( &ray1[0], &ray1[3], &ray2[3] ,cf );
+//        output_triangle( &ray1[0], &ray2[3], &ray2[0] ,cf );
+        output_triangle( &ray1[0], &ray2[0], &ray1[3] ,cf );
+        output_triangle( &ray2[0], &ray2[3], &ray1[3] ,cf );
+
     } else {
         output_triangle( &ray1[0], &ray1[3], &ray2[0] ,cf );
         output_triangle( &ray2[0], &ray1[3], &ray2[3] ,cf );
@@ -822,6 +825,51 @@ void write_floor_flange_stl(  pottoy_spec_t* spec, FILE* stlfile,
 
 
 }
+
+
+void write_texture_container_stl( void(*trnsfrm)(float*, float*), float mins, float maxs , float thickness, float* offset, stl_output_config cf) {
+
+    int n_s_segments = 50;
+    int n_t_segments = 50;
+
+    float delta_s = (maxs-mins)/((float) n_s_segments );
+    float delta_t = 1.0/((float) n_t_segments );
+
+    float s=mins;
+    float t=0.0;
+
+    float x[24];  // a cube of coordinates
+    float z[24];  // a cube of coordinates
+
+    for(int n=0; n<n_s_segments;n++) {
+    for(int m=0; m<n_t_segments;m++) {
+      //  printf( "nm %d %d\n", n,m );
+    
+        for(int i=0;i<=1;i++) {
+            for(int j=0;j<=1;j++) {
+                for(int k=0;k<=1;k++) {
+                    x[  12*i + 6*j + 3*k +0 ] = (m+k)*delta_t ;
+                    x[  12*i + 6*j + 3*k +1 ] = mins + (n+j)*delta_s ;
+                    x[  12*i + 6*j + 3*k +2 ] = (((float)i))*thickness;
+                }
+            }
+        }
+    
+
+        for(int i=0;i<8;i++) {
+        	trnsfrm(&z[3*i],&x[3*i] ) ;
+            add(&z[3*i],&z[3*i],offset);
+        }
+
+       // stl_printquad( &z[0] , &z[6], stlfile, 0 ) ;
+        output_quad( &z[18] , &z[12], cf, 1 ) ;
+        //stl_printquad( &x[12] , &x[18], stlfile, 1 ) ;
+
+    } 
+    }
+
+}
+
 
 
 void write_texture_back_stl( void(*trnsfrm)(float*, float*), float mins, float maxs , float thickness, float* offset, stl_output_config cf) {

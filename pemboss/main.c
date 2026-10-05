@@ -350,7 +350,13 @@ int main(int argc, char *argv[]) {
 	bg = nsvgParseFromFile(argv[1], "px", 98.0f);
 	if (!bg) { printf("error parsing %s\n",argv[1]); return -1; }
 
-    int tops_only = argc > 3 ? 1 : 0;
+	printf("argc=%d\n", argc);
+	if (argc > 3) {
+		thickness = strtof(argv[3],NULL);
+	}
+	printf("thickness=%f\n", thickness);
+
+    int tops_only = argc > 4 ? 1 : 0;
 
     	int np = 0;
 	int done_init=0;
@@ -362,7 +368,7 @@ int main(int argc, char *argv[]) {
     int ppi = 0;
 
     float bounds[4];
-	float chamfer  = ( (M_PI* 60.0 )/180.0); 
+	float chamfer  = ( (M_PI* 15.0 )/180.0); 
 	//coneParams cone;
 
 	float width,height;
@@ -898,7 +904,7 @@ int main(int argc, char *argv[]) {
 
                         if (!tops_only) {
 //						print_triangle(v1,v3,v2, stlfile);
-                        add_triangle(v1,v2,v3,&mt);
+                           add_triangle(v1,v2,v3,&mt);
                         }
 					}
 #endif
@@ -929,9 +935,11 @@ int main(int argc, char *argv[]) {
 				}
 		}
 	
-      add_surface( n_sectors, n_levels, width, height,&mt,  0.5*thickness, 1) ;
-      add_surface( n_sectors, n_levels, width, height,&mt, -0.4*thickness, 0) ;
+	//??
+//      add_surface( n_sectors, n_levels, width, height,&mt,  0.5*thickness, 1) ;
+//      add_surface( n_sectors, n_levels, width, height,&mt, -0.4*thickness, 0) ;
 
+printf("didit");
 #define YUP 1
     write_to_obj(&mt,stlfile,YUP);
 

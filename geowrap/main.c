@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
         //apply_transform_to_mesh( texture, transf_X );
         //write_to_stl(texture,stlfile);
 
-            float thickness = 2.0;
+            float thickness = 4.0;
 
 
         if (! mold_mode) {
@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
             outputcf.n_clipping_planes = 2;
 
 //            write_surface_stl( &transform, stlfile, 0, 1, thickness,&offset[0] );
-            write_texture_back_stl( &transform, 0, 1, thickness,&offset[0], outputcf) ;
+            write_texture_container_stl( &transform, 0, 1, thickness,&offset[0], outputcf) ;
 
 
             fprintf(stlfile, "endsolid x\n");

@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
 			exit(0);
 		}
 
-		Plane p = (Plane){ {0,1,0}, 0.00 };
+		Plane p = (Plane){ { 0,0,1}, 0.00 };
 
         MeshTriangles* mesh = parse_triangles_with_normals(argv[1],(float) 1.0);
 
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 			if (d2>=0.0) {n_gez++;} 
 			if (d3>=0.0) {n_gez++;} 
 			printf("zz %f %f %f\n",d1,d2,d3);
-			if ((n_lz>0 && n_gez>0 && x1[0]>0.0))  { printf("#################"); }
+			//if ((n_lz>0 && n_gez>0 && x1[0]>0.0))  { printf("#################"); }
 			if ((n_lz>0 && n_gez>0 && x1[0]>0.0))  {
 				printf("f %d %d %d\n",  mesh->triangles[i*3]+1,  mesh->triangles[i*3+1]+1,  mesh->triangles[i*3+2]+1  );
 				if (d1>=0) { flags[v1]=1; printf("v %f %f %f  %d\n", mesh->xpoints[v1*3],  mesh->xpoints[v1*3+1],  mesh->xpoints[v1*3+2], v1 ); }
@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
 			} else {
 				fprintf(out,"v %f %f %f\n",mesh->xpoints[i*3], mesh->xpoints[i*3+1], mesh->xpoints[i*3+2]);
 			}
+			//fprintf(out,"vn 0.0 0.0 0.0\n"); 
+
 		}
 
 		for (int i=0;i<mesh->nxpoints;i++) {
@@ -88,6 +90,8 @@ int main(int argc, char *argv[]) {
 				} else {
 					fprintf(out,"v %f %f %f zip %d\n",mesh->xpoints[i*3], mesh->xpoints[i*3+1], mesh->xpoints[i*3+2], flags[i]-mesh->nxpoints );
 				}
+				//fprintf(out,"vn 0.0 0.0 0.0\n"); 
+
 			}
 		}
 
@@ -127,7 +131,7 @@ int main(int argc, char *argv[]) {
 				if (d1>=0) { v1 = flags[v1]; }
 				if (d2>=0) { v2 = flags[v2]; }
 				if (d3>=0) { v3 = flags[v3]; }
-			//	fprintf(out, "f %d %d %d zip\n", v1+1, v2+1, v3+1 );
+				//fprintf(out, "f %d %d %d\n", v1+1, v2+1, v3+1 );
 			}
 			fprintf(out, "f %d %d %d\n", v1+1, v2+1, v3+1 );
 		}
